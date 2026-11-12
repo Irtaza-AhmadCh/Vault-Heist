@@ -1,0 +1,565 @@
+VAULT HEIST: THE LIVING VAULT TWO-PERSON PARALLEL DEVELOPMENT ROADMAP
+
+Purpose This roadmap divides the project between two developers so both
+members can work at the same time. It defines responsibilities,
+development phases, integration points, testing duties, and a shared Git
+workflow. The goal is to build separate modules independently and
+combine them regularly, rather than waiting until the end to merge the
+entire project.
+
+The plan is based on the project elements discussed: Binary Tree, Binary
+Search Tree (BST), AVL Tree, Max Heap, visualization, animation,
+campaign and level systems, testing, and benchmarking. Exact
+requirements, signatures, scoring formulas, and level rules must be
+checked against the original assignment specification. Where those
+details are not available here, the team should agree on them before
+implementation rather than assume them.
+
+1.  TEAM STRUCTURE AND OWNERSHIP
+
+MEMBER A: BINARY TREE, BST, TREE VISUALIZATION, ACTS 1 AND 2
+
+Member A is responsible for: - BinaryTree node and basic tree
+implementation. - Preorder, inorder, postorder, and level-order
+traversals. - Tree construction or reconstruction operations required by
+the assignment. - Tree height and diameter. - Lowest Common Ancestor
+(LCA) and mirror/invert operations where required. - Binary Search Tree
+insertion and searching. - BST deletion, including leaf, one-child, and
+two-child cases. - BST minimum and maximum. - BST successor and
+predecessor. - BST range query and validation. - General tree layout and
+rendering. - Tree node and edge visualization. - Traversal highlighting
+and animations. - BST search, insertion, and deletion visualization. -
+Gameplay and level logic assigned to Acts 1 and 2. - BinaryTree and BST
+unit tests. - Tree-related documentation and benchmarking.
+
+MEMBER B: AVL TREE, MAX HEAP, ADVANCED VISUALIZATION, ACTS 3 AND 4
+
+Member B is responsible for: - AVL node structure and metadata. - AVL
+insertion and deletion. - AVL balance factor and height updates. - LL,
+RR, LR, and RL rotations. - AVL validation. - subtreeSize maintenance if
+required. - kth and rank operations if required. - MaxHeap
+implementation. - buildMaxHeap, siftUp, and siftDown. - extractMax and
+Heap Sort. - MaxHeap validity checks. - AVL rotation visualization. -
+Balance factor and height metadata display. - Heap tree visualization. -
+Heap array visualization and synchronization between the two views. -
+Animation controller or queue, subject to the shared ownership
+agreement. - Gameplay and level logic assigned to Acts 3 and 4. - AVL
+and MaxHeap unit tests. - AVL/Heap documentation and benchmarking.
+
+SHARED RESPONSIBILITIES
+
+Both members must agree on: - Programming language, compiler, GUI
+framework, and build configuration. - Folder structure, naming
+conventions, and public interfaces. - Event format and communication
+between the model and visual layer. - Main application architecture. -
+Campaign and level integration. - Score system and alarm meter. - Event
+log, undo, and replay. - Save and load. - Sandbox or endless mode, if
+required. - Final application testing, report preparation, and
+demonstration.
+
+For every shared module, choose one primary owner before implementation.
+The other member should review and test it. Do not let both members edit
+the same shared files independently without coordination.
+
+2.  DEVELOPMENT PRINCIPLES
+
+The team should follow these principles throughout the project:
+
+1.  Interface first: agree on class names, method names, parameters,
+    return values, and data ownership before implementing dependent
+    modules.
+
+2.  Independent modules: each member owns separate source files and
+    tests wherever possible.
+
+3.  Mock implementations: if a dependency is not ready, use a temporary
+    local mock or test fixture so work can continue.
+
+4.  Continuous integration: merge small, working changes after each
+    milestone.
+
+5.  Model and GUI separation: data structures should not directly draw
+    graphics or manipulate GUI widgets.
+
+6.  Test every module: each structure should have unit tests before it
+    is connected to the complete application.
+
+7.  Shared understanding: both members should understand the overall
+    architecture and be ready to explain the complete project.
+
+8.  PHASE 0 — ARCHITECTURE AGREEMENT
+
+Estimated duration: half a day to one day. Working arrangement: both
+members work together.
+
+Objective: Create a common technical foundation so the modules can be
+developed independently and connected later without major interface
+changes.
+
+Tasks for both members: 1. Confirm the programming language, compiler
+version, GUI framework, and build configuration required by the
+assignment. 2. Agree on the repository and folder structure. 3. Define
+public interfaces for BinaryTree, BST, AVLTree, and MaxHeap. 4. Agree on
+how data-structure operations report changes to the visual layer. 5.
+Define the boundary between model logic, event logging, animation
+control, and rendering. 6. Agree on error handling and memory ownership.
+7. Decide whether operations mutate structures in place or return
+results. 8. Create a minimal buildable application shell and a test
+target.
+
+Illustrative interface sketch:
+
+class BinaryTree { public: void preorder(); void inorder(); void
+postorder(); void levelOrder(); int height(); int diameter(); };
+
+class BST { public: void insert(int key); bool search(int key); void
+deleteNode(int key); };
+
+class AVLTree { public: void insert(int key); void deleteNode(int key);
+int kth(int k); int rank(int key); };
+
+class MaxHeap { public: void buildMaxHeap(); void siftUp(int index);
+void siftDown(int index); int extractMax(); void heapSort(); };
+
+These signatures are examples only. The team must confirm exact
+parameters, return types, error behaviour, and naming conventions before
+coding.
+
+Phase 0 deliverables: - Agreed public interfaces or header files. -
+Shared event specification. - Agreed model/event/animation/rendering
+architecture. - Repository with main and feature branches. - Build
+instructions. - Minimal project shell that compiles. - Written ownership
+list for source files.
+
+Exit condition: Both members can build the project shell and explain how
+a data-structure operation reaches the visual layer.
+
+4.  PHASE 1 — INDEPENDENT CORE IMPLEMENTATION
+
+Estimated duration: 3 to 5 days. Working arrangement: both members work
+in parallel.
+
+MEMBER A TASKS — BINARY TREE FOUNDATION
+
+1.  Create the required tree node representation.
+2.  Implement basic BinaryTree construction and lifecycle behaviour.
+3.  Implement preorder traversal.
+4.  Implement inorder traversal.
+5.  Implement postorder traversal.
+6.  Implement level-order traversal.
+7.  Implement tree construction or reconstruction operations required by
+    the assignment.
+8.  Implement tree height.
+9.  Implement tree diameter.
+10. Implement Lowest Common Ancestor (LCA) and mirror/invert operations
+    where required.
+11. Write tests for empty, single-node, balanced, skewed, and
+    multi-level trees.
+
+MEMBER B TASKS — MAX HEAP FOUNDATION AND AVL GROUNDWORK
+
+1.  Choose and implement the MaxHeap representation agreed in Phase 0.
+2.  Implement buildMaxHeap.
+3.  Implement siftUp.
+4.  Implement siftDown.
+5.  Implement extractMax.
+6.  Implement Heap Sort.
+7.  Implement a MaxHeap validity check.
+8.  Test empty heaps, one-element heaps, duplicate values, and
+    mixed-value inputs.
+9.  Create the AVL node structure and agreed height/balance metadata.
+10. Prepare AVL insertion and deletion scaffolding.
+11. Prepare rotation test cases.
+12. Use a temporary local BST or mock interface where necessary so AVL
+    work does not wait for Member A.
+
+INTEGRATION MILESTONE 1
+
+At the end of Phase 1: - Merge the BinaryTree foundation into the shared
+branch. - Merge the MaxHeap foundation into the shared branch. - Confirm
+that both modules compile independently of the GUI. - Run both members’
+unit tests from a clean checkout. - Review public interfaces before
+advanced implementation begins.
+
+Exit condition: Both core modules compile, have documented interfaces,
+and pass their initial unit tests.
+
+5.  PHASE 2 — ADVANCED DATA STRUCTURES
+
+Estimated duration: 3 to 5 days. Working arrangement: both members work
+in parallel, then perform a joint integration review.
+
+MEMBER A TASKS — BINARY SEARCH TREE
+
+1.  Implement BST insertion while preserving the BST ordering property.
+2.  Implement BST search.
+3.  Implement BST deletion.
+4.  Test deletion of a leaf node.
+5.  Test deletion of a node with one child.
+6.  Test deletion of a node with two children.
+7.  Implement minimum lookup.
+8.  Implement maximum lookup.
+9.  Implement successor.
+10. Implement predecessor.
+11. Implement range query.
+12. Implement BST validation.
+13. Agree and test the duplicate-key policy.
+14. Test empty trees, root deletion, repeated insertions, and skewed
+    trees.
+
+MEMBER B TASKS — AVL COMPLETION AND HEAP VERIFICATION
+
+1.  Complete AVL insertion.
+2.  Complete AVL deletion.
+3.  Implement and verify LL rotation.
+4.  Implement and verify RR rotation.
+5.  Implement and verify LR rotation.
+6.  Implement and verify RL rotation.
+7.  Maintain node height after updates.
+8.  Maintain balance factor after updates.
+9.  Maintain subtreeSize if required.
+10. Implement kth and rank if included in the assignment.
+11. Implement AVL validation for ordering, balance, and stored metadata.
+12. Complete heap invariant tests.
+13. Verify Heap Sort against a trusted sorted result.
+
+INTEGRATION MILESTONE 2
+
+At the end of Phase 2: - Connect AVL to agreed tree/BST abstractions
+only where the architecture requires it. - Do not force inheritance if
+it makes ownership or balancing harder. - Test AVL rotations and
+deletion with deterministic input sequences. - Verify BST ordering. -
+Verify AVL balance and metadata. - Verify heap-order property. - Run all
+data-structure tests together.
+
+Important dependency rule: Member B must not wait idle for Member A’s
+BST implementation. Member B should develop AVL against the agreed
+interface and local test fixtures. When the BST implementation is ready,
+reconcile any interface differences in a focused integration task.
+
+Exit condition: All required data structures are implemented and their
+core invariants pass automated tests.
+
+6.  PHASE 3 — GUI AND VISUALIZATION
+
+Estimated duration: 4 to 6 days. Working arrangement: both members work
+in parallel.
+
+MEMBER A TASKS — TREE AND BST VISUALIZATION
+
+1.  Implement layout logic for general binary trees and BSTs.
+2.  Render tree nodes.
+3.  Render connecting edges.
+4.  Display node labels and values.
+5.  Highlight selected nodes.
+6.  Highlight search paths.
+7.  Show traversal progress.
+8.  Animate preorder traversal.
+9.  Animate inorder traversal.
+10. Animate postorder traversal.
+11. Animate level-order traversal.
+12. Animate BST insertion.
+13. Animate BST search.
+14. Animate BST deletion.
+15. Build the tree-operation panel and relevant feedback.
+16. Implement the screens and interactions assigned to Acts 1 and 2.
+
+MEMBER B TASKS — AVL, HEAP, AND ANIMATION INFRASTRUCTURE
+
+1.  Implement the shared animation controller or queue if assigned to
+    Member B.
+2.  Support play, pause, and step-through behaviour if required.
+3.  Animate AVL rotations.
+4.  Display AVL balance factor and height metadata.
+5.  Render the heap as a tree.
+6.  Render the heap as an array.
+7.  Keep the heap tree and array views synchronized after operations.
+8.  Implement heap operation demonstrations.
+9.  Build relevant heap controls.
+10. Implement the screens and interactions assigned to Acts 3 and 4.
+
+SHARED VISUALIZATION CONTRACT
+
+A data-structure operation should not directly draw pixels or manipulate
+GUI widgets. The model should report what changed. The event or
+animation layer should interpret the change. The renderer should display
+it.
+
+This separation allows data structures to be tested without starting the
+GUI and helps prevent visual code from changing the underlying algorithm
+behaviour.
+
+INTEGRATION MILESTONE 3
+
+At the end of Phase 3: 1. Connect both visual modules to the same
+application shell. 2. Verify that operations update the model and that
+the display reflects the resulting events. 3. Test rapid repeated
+actions. 4. Test invalid actions. 5. Test empty structures. 6. Test
+reset behaviour. 7. Check that animations do not leave the displayed
+structure inconsistent with the actual model.
+
+Exit condition: Both members’ visualization modules work in the same
+application and correctly represent the underlying data structures.
+
+7.  PHASE 4 — GAME SYSTEMS AND CAMPAIGN INTEGRATION
+
+Estimated duration: 3 to 4 days. Working arrangement: each member owns
+separate act-specific work, with joint integration of shared systems.
+
+MEMBER A TASKS — ACTS 1 AND 2
+
+1.  Create or configure the level data assigned to Acts 1 and 2.
+2.  Implement tree-specific level rules.
+3.  Implement BST-specific level rules.
+4.  Implement win conditions for the assigned acts.
+5.  Implement tree-related hints or guidance where specified.
+6.  Test progression through Acts 1 and 2.
+7.  Prepare representative tree and BST demonstration scenarios.
+
+MEMBER B TASKS — ACTS 3 AND 4
+
+1.  Create or configure the level data assigned to Acts 3 and 4.
+2.  Implement AVL-specific level rules.
+3.  Implement Heap-specific level rules.
+4.  Implement win conditions for the assigned acts.
+5.  Implement rotation-related hints or guidance where specified.
+6.  Implement heap-related hints or guidance where specified.
+7.  Test progression through Acts 3 and 4.
+8.  Prepare representative AVL and Heap demonstration scenarios.
+
+SHARED SYSTEMS
+
+The team must choose one primary owner for each shared module before
+coding.
+
+Suggested ownership: - Main menu and campaign shell: Member A, with
+Member B reviewing and testing. - LevelManager: Member A, with Member B
+providing Act 3 and Act 4 requirements and test cases. -
+AnimationController: Member B, with Member A providing tree animation
+events and reviewing. - ScoreSystem and alarm meter: choose one owner
+together; both members define and test the rules. - EventLog, undo, and
+replay: choose one owner together; both members provide operation events
+or state snapshots. - Save and load: choose one owner together; both
+members verify structure restoration. - Sandbox and endless mode: split
+by structure or agree on a single owner.
+
+These are coordination defaults. If the original assignment specifies a
+different architecture or ownership, follow the assignment.
+
+INTEGRATION MILESTONE 4
+
+At the end of Phase 4: - All required acts can be opened and completed
+through the campaign flow. - Level transitions work. - Level resets
+work. - Scoring and alarm behaviour are consistent. - Event log, undo,
+and replay work for the relevant operations if required. - Save and load
+restore tree and heap state correctly if required.
+
+Exit condition: The complete campaign flow works across the structures
+and the shared game systems.
+
+8.  PHASE 5 — TESTING, BENCHMARKING, AND SUBMISSION
+
+Estimated duration: 2 to 3 days. Working arrangement: parallel testing
+followed by a joint end-to-end review.
+
+MEMBER A TASKS
+
+1.  Run and maintain BinaryTree unit tests.
+2.  Run and maintain BST unit tests.
+3.  Test BST deletion cases.
+4.  Test tree and BST visualization.
+5.  Test Acts 1 and 2.
+6.  Measure relevant tree operation performance if benchmarking is
+    required.
+7.  Document BinaryTree and BST implementation details.
+8.  Document tree-related test results.
+
+MEMBER B TASKS
+
+1.  Run and maintain AVL unit tests.
+2.  Test every AVL rotation case.
+3.  Run and maintain MaxHeap tests.
+4.  Verify Heap Sort results.
+5.  Test AVL and Heap visualization.
+6.  Test Acts 3 and 4.
+7.  Measure relevant AVL and Heap operation performance if benchmarking
+    is required.
+8.  Document AVL and MaxHeap implementation details.
+9.  Document AVL/Heap test results.
+
+JOINT FINAL VERIFICATION
+
+Both members must: 1. Build the project from a clean repository clone.
+2. Follow the documented build instructions. 3. Run the complete
+automated test suite. 4. Play through every required act. 5. Test normal
+interactions. 6. Test invalid interactions. 7. Test boundary and
+empty-structure cases. 8. Verify undo and replay if included in the
+specification. 9. Verify save and load if included in the specification.
+10. Capture required screenshots and demonstration evidence. 11. Prepare
+the report. 12. Prepare benchmark tables and describe the benchmark
+method. 13. Prepare the presentation or demonstration sequence. 14.
+Ensure both members can explain the overall architecture and major
+algorithms.
+
+SUBMISSION READINESS CHECKLIST
+
+-   No unmerged feature branches remain.
+-   No uncommitted work remains.
+-   A clean build succeeds on the target environment.
+-   Required tests pass.
+-   Test instructions are documented.
+-   Required GUI demonstrations are captured.
+-   Benchmark methods and input sizes are stated.
+-   Report and source code use consistent names and descriptions.
+-   Both members can demonstrate and explain the application.
+
+Exit condition: The application builds cleanly, required tests pass, and
+the team is ready to submit and demonstrate the project.
+
+9.  GIT WORKFLOW AND MERGING RULES
+
+Use one shared repository with a protected main branch and separate
+feature branches.
+
+Suggested branches: - main - feature/member-a-binary-tree-bst -
+feature/member-b-avl-heap-visuals
+
+DAILY WORKFLOW FOR EACH MEMBER
+
+1.  Pull the latest shared branch before starting work.
+2.  Work in the files assigned to your module.
+3.  Build and run the module’s tests locally.
+4.  Commit small, understandable changes.
+5.  Push the branch regularly.
+6.  Open a pull request describing the files changed, behaviour added,
+    and tests run.
+7.  Ask the other member to review interface and integration impact.
+8.  Merge only after the agreed checks pass.
+
+RULES TO PREVENT MERGE CONFLICTS
+
+-   Do not both edit the same file independently.
+-   Put shared declarations in agreed headers or interface files.
+-   Do not duplicate class definitions.
+-   Keep GUI code out of data-structure implementation files.
+-   Do not rename public methods without informing the other member.
+-   Merge small pull requests frequently.
+-   Assign one owner to each shared module.
+-   Communicate interface changes before implementing them.
+
+SUGGESTED FILE OWNERSHIP
+
+-   structures/binary_tree/: Member A.
+-   structures/bst/: Member A.
+-   structures/avl/: Member B.
+-   structures/heap/: Member B.
+-   visualization/tree/: Member A.
+-   visualization/heap/: Member B.
+-   visualization/animation/: Member B, coordinated with the shared
+    event contract.
+-   game/levels/act1-2/: Member A.
+-   game/levels/act3-4/: Member B.
+-   shared core, main application, and build files: assign a named owner
+    together.
+
+A pull request is ready to merge only when it builds, tests pass, the
+interface is documented, and the other member understands its impact.
+
+10. MASTER TIMELINE AND INTEGRATION GATES
+
+Phase 0 — Architecture agreement: Estimated duration: 0.5 to 1 day.
+Member A: agree on APIs and events. Member B: agree on APIs and events.
+Integration gate: buildable application shell and documented contracts.
+
+Phase 1 — Core structures: Estimated duration: 3 to 5 days. Member A:
+BinaryTree foundation. Member B: MaxHeap foundation and AVL groundwork.
+Integration gate: both modules compile and pass initial tests.
+
+Phase 2 — Advanced structures: Estimated duration: 3 to 5 days. Member
+A: BST implementation. Member B: AVL completion and Heap verification.
+Integration gate: structure invariants and unit tests pass.
+
+Phase 3 — GUI and visualization: Estimated duration: 4 to 6 days. Member
+A: tree and BST visualization. Member B: AVL and Heap visualization and
+animation infrastructure. Integration gate: both visual modules connect
+to the same application.
+
+Phase 4 — Game integration: Estimated duration: 3 to 4 days. Member A:
+Acts 1 and 2 and assigned shared tasks. Member B: Acts 3 and 4 and
+assigned shared tasks. Integration gate: campaign flow and shared game
+systems work.
+
+Phase 5 — Testing and submission: Estimated duration: 2 to 3 days.
+Member A: tree tests, documentation, and benchmarking. Member B:
+AVL/Heap tests, documentation, and benchmarking. Integration gate: clean
+build, complete tests, and demonstration readiness.
+
+Estimated total duration: approximately 16 to 24 days.
+
+These estimates assume both members work consistently and the scope does
+not change. They are planning estimates, not fixed deadlines.
+
+Do not move to the next phase just because the estimated number of days
+has passed. Move forward when the phase’s exit condition is met. If one
+module is delayed, the other member should continue using the agreed
+interface and a mock or stub instead of becoming blocked.
+
+WEEKLY COORDINATION MEETING
+
+Hold a short meeting of approximately 15 to 25 minutes. Discuss: - What
+was completed and merged? - What is currently blocked? - What interface
+or decision is missing? - Does either member need to edit a shared
+file? - What will each member deliver before the next meeting? - Which
+tests and integration gate must pass next?
+
+11. RISKS AND SAFEGUARDS
+
+Risk: Member A’s BST implementation delays Member B’s AVL work.
+Safeguard: Member B develops AVL against the agreed interface and local
+test fixtures.
+
+Risk: Members make different assumptions about node fields or ownership.
+Safeguard: Agree on the node and API contract in Phase 0 and review
+changes before merging.
+
+Risk: GUI and model code become tightly coupled. Safeguard: Keep model
+operations independent of rendering and communicate through events.
+
+Risk: Both members edit the same shared file. Safeguard: Assign one
+owner per shared module and use pull requests.
+
+Risk: Integration is postponed until the end. Safeguard: Use the
+integration milestones and merge continuously.
+
+Risk: Tests cover only normal inputs. Safeguard: Include empty,
+single-node, duplicate, skewed, and boundary cases where relevant.
+
+Risk: Only one member understands the project. Safeguard: Conduct short
+code walkthroughs and prepare jointly for the demonstration.
+
+12. TEAM AGREEMENT
+
+Both members agree to: - Work in parallel within the agreed module
+boundaries. - Keep public interfaces stable and communicate changes. -
+Avoid uncoordinated edits to shared files. - Build and test modules
+before merging. - Integrate after each milestone. - Help review each
+other’s code. - Understand the complete project, not only their own
+modules. - Prepare together for the final demonstration and viva.
+
+Member A Name: ______________________________________ Signature:
+__________________________________ Date:
+______________________________________
+
+Member B Name: ______________________________________ Signature:
+__________________________________ Date:
+______________________________________
+
+FINAL REMINDER
+
+The purpose of this division is not to create two isolated
+mini-projects. It is to create two independently testable development
+streams that connect through shared contracts. The quality of the
+interface agreement and the frequency of integration will determine how
+smoothly the team works in parallel.
+
+END OF ROADMAP
