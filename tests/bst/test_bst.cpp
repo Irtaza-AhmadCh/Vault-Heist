@@ -20,13 +20,13 @@ void testInsertAndSearch() {
     bst.insert(10);
     bst.insert(5);
     bst.insert(15);
-    bst.insert(5); // duplicate
+    bst.insert(5);
 
-    check("Insert: search existing key 10",   bst.search(10));
-    check("Insert: search existing key 5",    bst.search(5));
-    check("Insert: search existing key 15",   bst.search(15));
-    check("Insert: search missing key 99",   !bst.search(99));
-    check("Insert: duplicate rejected (still valid BST)", bst.isValidBST());
+    check("Insert: search existing key 10",  bst.search(10));
+    check("Insert: search existing key 5",   bst.search(5));
+    check("Insert: search existing key 15",  bst.search(15));
+    check("Insert: search missing key 99",  !bst.search(99));
+    check("Insert: duplicate rejected",      bst.isValidBST());
 }
 
 void testMinMax() {
@@ -52,22 +52,22 @@ void testDeleteLeaf() {
     bst.insert(70);
 
     bst.deleteNode(30);
-    check("Delete leaf: 30 removed",       !bst.search(30));
-    check("Delete leaf: 50 still exists",   bst.search(50));
-    check("Delete leaf: 70 still exists",   bst.search(70));
-    check("Delete leaf: still valid BST",   bst.isValidBST());
+    check("Delete leaf: 30 removed",      !bst.search(30));
+    check("Delete leaf: 50 still exists",  bst.search(50));
+    check("Delete leaf: 70 still exists",  bst.search(70));
+    check("Delete leaf: still valid BST",  bst.isValidBST());
 }
 
 void testDeleteOneChild() {
     BST bst;
     bst.insert(50);
     bst.insert(30);
-    bst.insert(20); // 30 has only left child
+    bst.insert(20);
 
     bst.deleteNode(30);
-    check("Delete one-child: 30 removed",    !bst.search(30));
-    check("Delete one-child: 20 still there", bst.search(20));
-    check("Delete one-child: valid BST",      bst.isValidBST());
+    check("Delete one-child: 30 removed",     !bst.search(30));
+    check("Delete one-child: 20 still there",  bst.search(20));
+    check("Delete one-child: valid BST",       bst.isValidBST());
 }
 
 void testDeleteTwoChildren() {
@@ -78,11 +78,11 @@ void testDeleteTwoChildren() {
     bst.insert(20);
     bst.insert(40);
 
-    bst.deleteNode(30); // has two children
-    check("Delete two-children: 30 removed",    !bst.search(30));
-    check("Delete two-children: 20 still there", bst.search(20));
-    check("Delete two-children: 40 still there", bst.search(40));
-    check("Delete two-children: valid BST",       bst.isValidBST());
+    bst.deleteNode(30);
+    check("Delete two-children: 30 removed",     !bst.search(30));
+    check("Delete two-children: 20 still there",  bst.search(20));
+    check("Delete two-children: 40 still there",  bst.search(40));
+    check("Delete two-children: valid BST",        bst.isValidBST());
 }
 
 void testDeleteRoot() {
@@ -92,19 +92,19 @@ void testDeleteRoot() {
     bst.insert(15);
 
     bst.deleteNode(10);
-    check("Delete root: root removed",        !bst.search(10));
-    check("Delete root: 5 still there",        bst.search(5));
-    check("Delete root: 15 still there",       bst.search(15));
-    check("Delete root: valid BST",            bst.isValidBST());
+    check("Delete root: root removed",   !bst.search(10));
+    check("Delete root: 5 still there",   bst.search(5));
+    check("Delete root: 15 still there",  bst.search(15));
+    check("Delete root: valid BST",       bst.isValidBST());
 }
 
 void testDeleteMissingKey() {
     BST bst;
     bst.insert(10);
 
-    bst.deleteNode(99); // should not crash
-    check("Delete missing key: tree intact",   bst.search(10));
-    check("Delete missing key: still valid",   bst.isValidBST());
+    bst.deleteNode(99);
+    check("Delete missing key: tree intact", bst.search(10));
+    check("Delete missing key: still valid", bst.isValidBST());
 }
 
 void testSuccessorPredecessor() {
@@ -136,10 +136,10 @@ void testRangeQuery() {
     bst.insert(60);
     bst.insert(80);
 
-    check("Range: count [25, 65] is 4",   bst.countInRange(25, 65) == 4);
-    check("Range: count [20, 80] is 7",   bst.countInRange(20, 80) == 7);
-    check("Range: count [1, 10] is 0",    bst.countInRange(1, 10) == 0);
-    check("Range: count [50, 50] is 1",   bst.countInRange(50, 50) == 1);
+    check("Range: count [25, 65] is 4",  bst.countInRange(25, 65) == 4);
+    check("Range: count [20, 80] is 7",  bst.countInRange(20, 80) == 7);
+    check("Range: count [1, 10] is 0",   bst.countInRange(1, 10)  == 0);
+    check("Range: count [50, 50] is 1",  bst.countInRange(50, 50) == 1);
 }
 
 void testValidation() {
@@ -148,10 +148,9 @@ void testValidation() {
     bst.insert(30);
     bst.insert(70);
 
-    check("Validation: valid BST is valid",   bst.isValidBST());
+    check("Validation: valid BST is valid", bst.isValidBST());
 
-    // manually corrupt it
-    bst.root->left->data = 999;
+    bst.getRoot()->left->key = 999;
     check("Validation: corrupted BST is invalid", !bst.isValidBST());
 }
 
@@ -163,9 +162,9 @@ void testLCABST() {
     bst.insert(5);
     bst.insert(15);
 
-    check("LCA BST: lca(5,15) is 10",   bst.lcaBST(5, 15) == 10);
-    check("LCA BST: lca(5,30) is 20",   bst.lcaBST(5, 30) == 20);
-    check("LCA BST: lca(10,30) is 20",  bst.lcaBST(10, 30) == 20);
+    check("LCA BST: lca(5,15) is 10",  bst.lcaBST(5, 15) == 10);
+    check("LCA BST: lca(5,30) is 20",  bst.lcaBST(5, 30) == 20);
+    check("LCA BST: lca(10,30) is 20", bst.lcaBST(10, 30) == 20);
 }
 
 void testDegenerate() {
@@ -186,6 +185,18 @@ void testDegenerate() {
     check("Degenerate: balanced BST is not degenerate", !balanced.isDegenerate());
 }
 
+void testNodeFields() {
+    BST bst;
+    bst.insert(42);
+
+    BSTNode* r = bst.getRoot();
+    check("Node fields: key is 42",        r->key == 42);
+    check("Node fields: id assigned",      r->id >= 1);
+    check("Node fields: parent is null",   r->parent == nullptr);
+    check("Node fields: left is null",     r->left == nullptr);
+    check("Node fields: right is null",    r->right == nullptr);
+}
+
 int main() {
     cout << "=== BST Unit Tests ===" << endl << endl;
 
@@ -201,10 +212,10 @@ int main() {
     testValidation();
     testLCABST();
     testDegenerate();
+    testNodeFields();
 
     cout << endl;
     cout << "Results: " << passed << " passed, " << failed << " failed." << endl;
 
     return failed == 0 ? 0 : 1;
 }
-
