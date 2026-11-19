@@ -67,6 +67,12 @@ struct EventLog {
     void logUpdateHeight(int nodeId, int oldHeight, int newHeight);
     void logUpdateSize(int nodeId, int oldSize, int newSize);
     void logBalanceAlert(int nodeId, int balanceFactor);
+    void logVisit(int nodeId, int value);
+    void logInsert(int nodeId, int parentId, int side, int value);
+    void logUnlink(int nodeId, int parentId, int side, int value);
+    void logSwapValue(int nodeA, int nodeB, int valA, int valB);
+    void logHighlightSubtree(int nodeId, const char* mode);
+    void logDone(const char* summary);
     void clear();
     int getCount() const;
     Event getEvent(int index) const;

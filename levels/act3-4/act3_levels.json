@@ -1,0 +1,52 @@
+{
+  "act": 3,
+  "name": "The Architect's Wing",
+  "dataStructure": "avl",
+  "levels": [
+    {
+      "level": 1,
+      "title": "Level 3.1: Balance Detection",
+      "objective": "Inspect Balance Factor badges: BF = height(left) - height(right).",
+      "hint": "A balanced AVL node has |BF| <= 1.",
+      "requiredAction": "search",
+      "targetValue": 25,
+      "optimalSteps": 2
+    },
+    {
+      "level": 2,
+      "title": "Level 3.2: Single Rotations (LL & RR)",
+      "objective": "Demonstrate Single Rotations: LL (Right rotation) or RR (Left rotation).",
+      "hint": "Click 'Demo LL' or 'Demo RR' to rebalance the vault.",
+      "requiredAction": "demo_ll",
+      "targetValue": 0,
+      "optimalSteps": 2
+    },
+    {
+      "level": 3,
+      "title": "Level 3.3: Double Rotations (LR & RL)",
+      "objective": "Demonstrate Double Rotations: LR or RL to restore balance.",
+      "hint": "Click 'Demo LR' or 'Demo RL' to execute the double pivot.",
+      "requiredAction": "demo_lr",
+      "targetValue": 0,
+      "optimalSteps": 2
+    },
+    {
+      "level": 4,
+      "title": "Level 3.4: Autonomous Balancing",
+      "objective": "Insert key 15 and observe automatic rebalancing.",
+      "hint": "AVL trees autonomously detect imbalances and trigger rotations.",
+      "requiredAction": "insert",
+      "targetValue": 15,
+      "optimalSteps": 3
+    },
+    {
+      "level": 5,
+      "title": "Level 3.5: Order Statistics",
+      "objective": "Extract the 3rd smallest key in O(log N) using Subtree Sizes.",
+      "hint": "Augmented subtree sizes enable fast order-statistic queries.",
+      "requiredAction": "kth",
+      "targetValue": 3,
+      "optimalSteps": 2
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "type": "shell",
+      "label": "Build Vault Heist (SFML 2.6.2)",
+      "command": "g++",
+      "args": [
+        "-std=c++17",
+        "src/main.cpp",
+        "src/structures/bst/bst.cpp",
+        "-I${workspaceFolder}/docs/SFML-2.6.2-x64/SFML-2.6.2/include",
+        "-L${workspaceFolder}/docs/SFML-2.6.2-x64/SFML-2.6.2/lib",
+        "-lsfml-graphics",
+        "-lsfml-window",
+        "-lsfml-system",
+        "-o",
+        "${workspaceFolder}/main.exe"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": ["$gcc"]
+    }
+  ]
+}

@@ -203,6 +203,77 @@ void EventLog::logBalanceAlert(int nodeId, int balanceFactor) {
     addEvent(ev);
 }
 
+void EventLog::logVisit(int nodeId, int value) {
+    if (!enabled) {
+        return;
+    }
+    Event ev;
+    ev.type = EVENT_VISIT;
+    ev.nodeId = nodeId;
+    ev.value = value;
+    addEvent(ev);
+}
+
+void EventLog::logInsert(int nodeId, int parentId, int side, int value) {
+    if (!enabled) {
+        return;
+    }
+    Event ev;
+    ev.type = EVENT_INSERT;
+    ev.nodeId = nodeId;
+    ev.parentId = parentId;
+    ev.side = side;
+    ev.value = value;
+    addEvent(ev);
+}
+
+void EventLog::logUnlink(int nodeId, int parentId, int side, int value) {
+    if (!enabled) {
+        return;
+    }
+    Event ev;
+    ev.type = EVENT_UNLINK;
+    ev.nodeId = nodeId;
+    ev.parentId = parentId;
+    ev.side = side;
+    ev.value = value;
+    addEvent(ev);
+}
+
+void EventLog::logSwapValue(int nodeA, int nodeB, int valA, int valB) {
+    if (!enabled) {
+        return;
+    }
+    Event ev;
+    ev.type = EVENT_SWAP_VALUE;
+    ev.nodeId = nodeA;
+    ev.parentId = nodeB;
+    ev.oldValue = valA;
+    ev.newValue = valB;
+    addEvent(ev);
+}
+
+void EventLog::logHighlightSubtree(int nodeId, const char* mode) {
+    if (!enabled) {
+        return;
+    }
+    Event ev;
+    ev.type = EVENT_HIGHLIGHT_SUBTREE;
+    ev.nodeId = nodeId;
+    ev.strExtra = mode;
+    addEvent(ev);
+}
+
+void EventLog::logDone(const char* summary) {
+    if (!enabled) {
+        return;
+    }
+    Event ev;
+    ev.type = EVENT_DONE;
+    ev.strExtra = summary;
+    addEvent(ev);
+}
+
 void EventLog::clear() {
     count = 0;
 }

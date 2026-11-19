@@ -1,0 +1,58 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "type": "shell",
+      "label": "Build SFML Project",
+      "command": "E:/mingw32/bin/g++.exe",
+      "args": [
+        "-std=c++17",
+        "-Wall",
+        "-Wextra",
+        "src/main.cpp",
+        "-o",
+        "main.exe",
+        "-I",
+        "E:/SFML-2.6.2/include",
+        "-L",
+        "E:/SFML-2.6.2/lib",
+        "-lsfml-graphics",
+        "-lsfml-window",
+        "-lsfml-system",
+        "-lsfml-audio",
+        "-lsfml-network",
+        "-static-libgcc",
+        "-static-libstdc++"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": ["$gcc"],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "type": "shell",
+      "label": "Build with Make",
+      "command": "E:/mingw32/bin/mingw32-make.exe",
+      "args": ["all"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "type": "shell",
+      "label": "Run SFML Project",
+      "command": ".\\main.exe",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "dependsOn": "Build SFML Project",
+      "problemMatcher": []
+    }
+  ]
+}
+

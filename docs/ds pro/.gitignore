@@ -1,0 +1,17 @@
+# Build artifacts
+*.exe
+*.o
+*.a
+*.obj
+
+# CMake build folders
+build/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+
+# Visual Studio / VS Code caches
+.vscode/.browse.c_cpp.db*
+.vs/
+*.pdb
+

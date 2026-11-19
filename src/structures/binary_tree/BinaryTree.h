@@ -255,6 +255,116 @@ public:
         return isSameStructure(a->left, b->left) && isSameStructure(a->right, b->right);
     }
 
+    void getPreorderHelper(TreeNode* node, int* arr, int& count) {
+        if (node == nullptr) return;
+        arr[count++] = node->data;
+        getPreorderHelper(node->left, arr, count);
+        getPreorderHelper(node->right, arr, count);
+    }
+
+    void getPreorder(int* arr, int& count) {
+        count = 0;
+        getPreorderHelper(root, arr, count);
+    }
+
+    void getInorderHelper(TreeNode* node, int* arr, int& count) {
+        if (node == nullptr) return;
+        getInorderHelper(node->left, arr, count);
+        arr[count++] = node->data;
+        getInorderHelper(node->right, arr, count);
+    }
+
+    void getInorder(int* arr, int& count) {
+        count = 0;
+        getInorderHelper(root, arr, count);
+    }
+
+    void getPostorderHelper(TreeNode* node, int* arr, int& count) {
+        if (node == nullptr) return;
+        getPostorderHelper(node->left, arr, count);
+        getPostorderHelper(node->right, arr, count);
+        arr[count++] = node->data;
+    }
+
+    void getPostorder(int* arr, int& count) {
+        count = 0;
+        getPostorderHelper(root, arr, count);
+    }
+
+    void getLevelOrder(int* arr, int& count) {
+        count = 0;
+        if (root == nullptr) return;
+        SimpleQueue q;
+        q.enqueue(root);
+        while (!q.isEmpty()) {
+            TreeNode* cur = q.dequeue();
+            arr[count++] = cur->data;
+            if (cur->left != nullptr) q.enqueue(cur->left);
+            if (cur->right != nullptr) q.enqueue(cur->right);
+        }
+    }
+
+    int heightEdge(TreeNode* node) {
+        if (node == nullptr) return -1;
+        if (node->left == nullptr && node->right == nullptr) return 0;
+        int leftH = heightEdge(node->left);
+        int rightH = heightEdge(node->right);
+        return 1 + (leftH > rightH ? leftH : rightH);
+    }
+
+    TreeNode* cloneTree(TreeNode* node) {
+        if (node == nullptr) return nullptr;
+        TreeNode* copy = new TreeNode(node->data);
+        copy->left = cloneTree(node->left);
+        copy->right = cloneTree(node->right);
+        return copy;
+    }
+
+    TreeNode* findNode(TreeNode* node, int val) {
+        if (node == nullptr) return nullptr;
+        if (node->data == val) return node;
+        TreeNode* leftFound = findNode(node->left, val);
+        if (leftFound != nullptr) return leftFound;
+        return findNode(node->right, val);
+    }
+
+    int countNodes(TreeNode* node) {
+        if (node == nullptr) return 0;
+        return 1 + countNodes(node->left) + countNodes(node->right);
+    }
+
+    bool isSameTree(TreeNode* a, TreeNode* b) {
+        return isSameStructure(a, b);
+    }
+
+    bool getPathNodes(int a, int b, int* outPath, int& outLen) {
+        outLen = 0;
+        int pathA[64], pathB[64];
+        int lenA = 0, lenB = 0;
+        if (!findPath(root, a, pathA, lenA)) return false;
+        if (!findPath(root, b, pathB, lenB)) return false;
+
+        int lcaVal = lca(a, b);
+        int lcaIdxA = -1, lcaIdxB = -1;
+        for (int i = 0; i < lenA; i++) {
+            if (pathA[i] == lcaVal) { lcaIdxA = i; break; }
+        }
+        for (int i = 0; i < lenB; i++) {
+            if (pathB[i] == lcaVal) { lcaIdxB = i; break; }
+        }
+        if (lcaIdxA == -1 || lcaIdxB == -1) return false;
+
+        // Path from a up to LCA
+        for (int i = lenA - 1; i >= lcaIdxA; i--) {
+            outPath[outLen++] = pathA[i];
+        }
+        // Path from after LCA down to b
+        for (int i = lcaIdxB + 1; i < lenB; i++) {
+            outPath[outLen++] = pathB[i];
+        }
+        return true;
+    }
+
     void printPreorder() {
         preorder(root);
         cout << endl;

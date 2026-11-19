@@ -1,0 +1,52 @@
+{
+  "act": 2,
+  "name": "The Sorted Wing",
+  "dataStructure": "bst",
+  "levels": [
+    {
+      "level": 1,
+      "title": "Level 2.1: The Target Pod",
+      "objective": "Locate key 60 in the BST using binary search comparisons.",
+      "hint": "Keys smaller go left; keys larger go right.",
+      "requiredAction": "search",
+      "targetValue": 60,
+      "optimalSteps": 3
+    },
+    {
+      "level": 2,
+      "title": "Level 2.2: Grafting Treasure",
+      "objective": "Insert key 45 into the BST without violating ordering rules.",
+      "hint": "Trace the synaptic path to an empty leaf location.",
+      "requiredAction": "insert",
+      "targetValue": 45,
+      "optimalSteps": 3
+    },
+    {
+      "level": 3,
+      "title": "Level 2.3: Severing Nodes",
+      "objective": "Delete key 30 (2-child node using inorder successor).",
+      "hint": "Inorder successor is the smallest pod in the right subtree.",
+      "requiredAction": "delete",
+      "targetValue": 30,
+      "optimalSteps": 4
+    },
+    {
+      "level": 4,
+      "title": "Level 2.4: Subtree Scanning",
+      "objective": "Execute a Range Query [30, 70] and dim skipped subtrees.",
+      "hint": "Branches outside the range boundaries are bypassed.",
+      "requiredAction": "range",
+      "targetValue": 0,
+      "optimalSteps": 3
+    },
+    {
+      "level": 5,
+      "title": "Level 2.5: Degenerate Prevention",
+      "objective": "Insert key 88 and inspect BST height progression.",
+      "hint": "Balanced insertions prevent trees from degenerating into linked lists.",
+      "requiredAction": "insert",
+      "targetValue": 88,
+      "optimalSteps": 4
+    }
+  ]
+}
