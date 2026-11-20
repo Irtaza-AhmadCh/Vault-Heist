@@ -1,4 +1,4 @@
-#include "../../src/structures/bst/BST.h"
+#include "../../game/logic/bst/bst.h"
 #include <iostream>
 using namespace std;
 

@@ -1,7 +1,7 @@
 #include <iostream>
 #include <cstring>
-#include "../../src/core/events/event.h"
-#include "../../src/structures/heap/max_heap.h"
+#include "../../game/logic/event.h"
+#include "../../game/logic/heap/max_heap.h"
 
 using namespace std;
 

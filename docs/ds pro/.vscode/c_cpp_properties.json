@@ -1,0 +1,22 @@
+{
+  "configurations": [
+    {
+      "name": "MinGW-32 (SFML)",
+      "includePath": [
+        "${workspaceFolder}/**",
+        "E:/SFML-2.6.2/include"
+      ],
+      "defines": [
+        "_DEBUG",
+        "UNICODE",
+        "_UNICODE"
+      ],
+      "compilerPath": "E:/mingw32/bin/g++.exe",
+      "cStandard": "c17",
+      "cppStandard": "c++17",
+      "intelliSenseMode": "windows-gcc-x86"
+    }
+  ],
+  "version": 4
+}
+

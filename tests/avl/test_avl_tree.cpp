@@ -1,7 +1,7 @@
 #include <iostream>
 #include <cstring>
-#include "../../src/core/events/event.h"
-#include "../../src/structures/avl/avl_tree.h"
+#include "../../game/logic/event.h"
+#include "../../game/logic/avl/avl_tree.h"
 
 using namespace std;
 
