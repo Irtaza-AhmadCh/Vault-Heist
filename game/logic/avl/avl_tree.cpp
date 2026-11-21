@@ -373,3 +373,209 @@ bool AVLTree::isEmpty() const {
     return root == nullptr;
 }
 
+AVLNode* AVLTree::findNode(int key) const {
+    AVLNode* curr = root;
+    while (curr != nullptr) {
+        if (curr->key == key) return curr;
+        if (key < curr->key) curr = curr->left;
+        else curr = curr->right;
+    }
+    return nullptr;
+}
+
+void AVLTree::insertRaw(int key, int value) {
+    if (root == nullptr) {
+        root = new AVLNode(key, value, nextId++);
+        return;
+    }
+    AVLNode* curr = root;
+    AVLNode* parent = nullptr;
+    while (curr != nullptr) {
+        parent = curr;
+        if (key < curr->key) {
+            curr = curr->left;
+        } else if (key > curr->key) {
+            curr = curr->right;
+        } else {
+            return;
+        }
+    }
+    AVLNode* newNode = new AVLNode(key, value, nextId++);
+    newNode->parent = parent;
+    if (key < parent->key) {
+        parent->left = newNode;
+    } else {
+        parent->right = newNode;
+    }
+
+    AVLNode* p = parent;
+    while (p != nullptr) {
+        updateHeightAndSize(p);
+        p = p->parent;
+    }
+}
+
+bool AVLTree::manualRotateLeft(int pivotKey) {
+    AVLNode* node = findNode(pivotKey);
+    if (node == nullptr || node->right == nullptr) return false;
+
+    AVLNode* oldParent = node->parent;
+    bool isLeftChild = (oldParent != nullptr && oldParent->left == node);
+
+    AVLNode* newSubRoot = rotateLeft(node);
+
+    if (oldParent == nullptr) {
+        root = newSubRoot;
+        newSubRoot->parent = nullptr;
+    } else {
+        newSubRoot->parent = oldParent;
+        if (isLeftChild) {
+            oldParent->left = newSubRoot;
+        } else {
+            oldParent->right = newSubRoot;
+        }
+    }
+
+    AVLNode* p = newSubRoot->parent;
+    while (p != nullptr) {
+        updateHeightAndSize(p);
+        p = p->parent;
+    }
+    return true;
+}
+
+bool AVLTree::manualRotateRight(int pivotKey) {
+    AVLNode* node = findNode(pivotKey);
+    if (node == nullptr || node->left == nullptr) return false;
+
+    AVLNode* oldParent = node->parent;
+    bool isLeftChild = (oldParent != nullptr && oldParent->left == node);
+
+    AVLNode* newSubRoot = rotateRight(node);
+
+    if (oldParent == nullptr) {
+        root = newSubRoot;
+        newSubRoot->parent = nullptr;
+    } else {
+        newSubRoot->parent = oldParent;
+        if (isLeftChild) {
+            oldParent->left = newSubRoot;
+        } else {
+            oldParent->right = newSubRoot;
+        }
+    }
+
+    AVLNode* p = newSubRoot->parent;
+    while (p != nullptr) {
+        updateHeightAndSize(p);
+        p = p->parent;
+    }
+    return true;
+}
+
+bool AVLTree::manualRotateLR(int pivotKey) {
+    AVLNode* node = findNode(pivotKey);
+    if (node == nullptr || node->left == nullptr || node->left->right == nullptr) return false;
+
+    if (eventLog != nullptr) {
+        eventLog->logRotate(node->id, ROTATION_LR);
+    }
+
+    AVLNode* leftChild = node->left;
+    AVLNode* newLeft = rotateLeft(leftChild);
+    node->left = newLeft;
+    newLeft->parent = node;
+
+    AVLNode* oldParent = node->parent;
+    bool isLeftChild = (oldParent != nullptr && oldParent->left == node);
+
+    AVLNode* newSubRoot = rotateRight(node);
+
+    if (oldParent == nullptr) {
+        root = newSubRoot;
+        newSubRoot->parent = nullptr;
+    } else {
+        newSubRoot->parent = oldParent;
+        if (isLeftChild) {
+            oldParent->left = newSubRoot;
+        } else {
+            oldParent->right = newSubRoot;
+        }
+    }
+
+    AVLNode* p = newSubRoot->parent;
+    while (p != nullptr) {
+        updateHeightAndSize(p);
+        p = p->parent;
+    }
+    return true;
+}
+
+bool AVLTree::manualRotateRL(int pivotKey) {
+    AVLNode* node = findNode(pivotKey);
+    if (node == nullptr || node->right == nullptr || node->right->left == nullptr) return false;
+
+    if (eventLog != nullptr) {
+        eventLog->logRotate(node->id, ROTATION_RL);
+    }
+
+    AVLNode* rightChild = node->right;
+    AVLNode* newRight = rotateRight(rightChild);
+    node->right = newRight;
+    newRight->parent = node;
+
+    AVLNode* oldParent = node->parent;
+    bool isLeftChild = (oldParent != nullptr && oldParent->left == node);
+
+    AVLNode* newSubRoot = rotateLeft(node);
+
+    if (oldParent == nullptr) {
+        root = newSubRoot;
+        newSubRoot->parent = nullptr;
+    } else {
+        newSubRoot->parent = oldParent;
+        if (isLeftChild) {
+            oldParent->left = newSubRoot;
+        } else {
+            oldParent->right = newSubRoot;
+        }
+    }
+
+    AVLNode* p = newSubRoot->parent;
+    while (p != nullptr) {
+        updateHeightAndSize(p);
+        p = p->parent;
+    }
+    return true;
+}
+
+static AVLNode* cloneAVLNodes(AVLNode* src, AVLNode* parent) {
+    if (src == nullptr) return nullptr;
+    AVLNode* n = new AVLNode(src->key, src->value, src->id);
+    n->height = src->height;
+    n->size = src->size;
+    n->parent = parent;
+    n->left = cloneAVLNodes(src->left, n);
+    n->right = cloneAVLNodes(src->right, n);
+    return n;
+}
+
+const char* AVLTree::predictRotationOnInsert(int key) const {
+    AVLTree tempTree;
+    EventLog tempLog(16);
+    tempLog.enabled = true;
+    tempTree.setEventLog(&tempLog);
+    tempTree.root = cloneAVLNodes(this->root, nullptr);
+    tempTree.nextId = this->nextId;
+
+    tempTree.insert(key);
+
+    for (int i = 0; i < tempLog.count; i++) {
+        if (strcmp(tempLog.items[i].type, EVENT_ROTATE) == 0) {
+            return tempLog.items[i].strExtra;
+        }
+    }
+    return "no_rotation";
+}
+
+

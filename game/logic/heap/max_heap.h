@@ -18,7 +18,6 @@ private:
     int currentSize;
     EventLog* eventLog;
 
-    void swapElements(int indexA, int indexB);
     void resize(int newCapacity);
 
 public:
@@ -26,6 +25,12 @@ public:
     MaxHeap(const int* arr, int n, EventLog* log = nullptr);
     MaxHeap(const MaxHeap& other);
     ~MaxHeap();
+
+    void swapElements(int indexA, int indexB);
+    void loadRawArray(const int* arr, int n);
+    void setSize(int s);
+    void appendRaw(int value);
+    bool isSortedAscending(int n) const;
 
     void setEventLog(EventLog* log);
     EventLog* getEventLog() const;

@@ -230,6 +230,37 @@ void MaxHeap::buildMaxHeap() {
     }
 }
 
+void MaxHeap::loadRawArray(const int* arr, int n) {
+    if (n > capacity) {
+        resize((n > 16) ? (n * 2) : 32);
+    }
+    currentSize = n;
+    for (int i = 0; i < n; i++) {
+        heapArray[i] = arr[i];
+    }
+}
+
+void MaxHeap::setSize(int s) {
+    if (s >= 0 && s <= capacity) {
+        currentSize = s;
+    }
+}
+
+void MaxHeap::appendRaw(int value) {
+    if (currentSize >= capacity) {
+        resize(capacity * 2);
+    }
+    heapArray[currentSize++] = value;
+}
+
+bool MaxHeap::isSortedAscending(int n) const {
+    if (n <= 1) return true;
+    for (int i = 0; i < n - 1; i++) {
+        if (heapArray[i] > heapArray[i + 1]) return false;
+    }
+    return true;
+}
+
 void MaxHeap::buildMaxHeap(const int* arr, int n) {
     if (n > capacity) {
         resize(n * 2);
