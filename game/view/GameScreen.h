@@ -858,8 +858,12 @@ public:
             }
         }
 
-        // Far right Menu button in sandbox
-        if (isScreen("sandbox") || isScreen("level_play")) {
+        // Random and Reset buttons in sandbox (row 1 far right area)
+        if (isScreen("sandbox")) {
+            buttons[buttonCount++] = BioButton(1185.0f, row1Y, 80.0f, btnH, "< Menu", 200);
+            buttons[buttonCount++] = BioButton(1090.0f, row1Y, 88.0f, btnH, "Reset", 220);
+            buttons[buttonCount++] = BioButton(996.0f, row1Y, 88.0f, btnH, "Random", 221);
+        } else if (isScreen("level_play")) {
             buttons[buttonCount++] = BioButton(1185.0f, row1Y, 80.0f, btnH, "< Menu", 200);
         }
 
@@ -994,6 +998,139 @@ public:
 
         syncHeapVisuals();
         inputBox.setValue(85);
+    }
+
+    void handleSandboxRandomAction() {
+        if (!isScreen("sandbox")) return;
+        
+        // Simple LCG random using existing endlessRng pattern
+        unsigned int rng = static_cast<unsigned int>(time(nullptr));
+        
+        if (isAct("act_1")) {
+            // Random binary tree: 5-9 nodes with values 10-99
+            binTree.destroyTree(binTree.root);
+            binTree.root = nullptr;
+            int count = 5 + (int)((rng = rng * 1103515245u + 12345u, (rng >> 16)) % 5);
+            int vals[9];
+            int usedCount = 0;
+            for (int i = 0; i < count; i++) {
+                rng = rng * 1103515245u + 12345u;
+                int v = 10 + (int)((rng >> 16) % 90);
+                // Check no duplicate
+                bool dup = false;
+                for (int j = 0; j < usedCount; j++) if (vals[j] == v) { dup = true; break; }
+                if (dup) { i--; continue; }
+                vals[usedCount++] = v;
+            }
+            // Insert as level-order (simple queue approach)
+            int nodeArr[9];
+            for (int i = 0; i < usedCount; i++) nodeArr[i] = vals[i];
+            // Build manually: root = vals[0], then fill left/right BFS style
+            if (usedCount > 0) {
+                binTree.root = new TreeNode(nodeArr[0]);
+                TreeNode* queue[16];
+                int front = 0, back = 0;
+                queue[back++] = binTree.root;
+                int idx = 1;
+                while (idx < usedCount && front < back) {
+                    TreeNode* cur = queue[front++];
+                    if (idx < usedCount) {
+                        cur->left = new TreeNode(nodeArr[idx++]);
+                        queue[back++] = cur->left;
+                    }
+                    if (idx < usedCount) {
+                        cur->right = new TreeNode(nodeArr[idx++]);
+                        queue[back++] = cur->right;
+                    }
+                }
+            }
+            syncBinaryTreeVisuals();
+            hud.setStatus("SANDBOX RANDOM: Generated random binary tree.", "Experiment with traversals, LCA, height, and mirror.");
+        } else if (isAct("act_2")) {
+            // Random BST: 6-10 unique values 10-99
+            while (!bst.isEmpty()) bst.deleteNode(bst.getRoot()->key);
+            int count = 6 + (int)((rng = rng * 1103515245u + 12345u, (rng >> 16)) % 5);
+            int inserted = 0;
+            for (int i = 0; i < count * 10 && inserted < count; i++) {
+                rng = rng * 1103515245u + 12345u;
+                int v = 10 + (int)((rng >> 16) % 90);
+                if (!bst.search(v)) { bst.insert(v); inserted++; }
+            }
+            syncBSTVisuals();
+            hud.setStatus("SANDBOX RANDOM: Generated random BST.", "BST ordering guaranteed. Try insert, delete, search, range.");
+        } else if (isAct("act_3")) {
+            // Random AVL: 5-9 unique values 10-99
+            avl.setEventLog(&eventLog);
+            while (!avl.isEmpty()) avl.deleteNode(avl.getRoot()->key);
+            eventLog.clear();
+            int count = 5 + (int)((rng = rng * 1103515245u + 12345u, (rng >> 16)) % 5);
+            int inserted = 0;
+            for (int i = 0; i < count * 10 && inserted < count; i++) {
+                rng = rng * 1103515245u + 12345u;
+                int v = 10 + (int)((rng >> 16) % 90);
+                if (!avl.search(v)) { avl.insert(v); inserted++; }
+            }
+            eventLog.clear();
+            syncAVLVisuals();
+            hud.setStatus("SANDBOX RANDOM: Generated random AVL tree.", "Automatically balanced. Demos show rotation cases.");
+        } else if (isAct("act_4")) {
+            // Random Heap: 7-11 values 10-99
+            heap.setEventLog(&eventLog);
+            int count = 7 + (int)((rng = rng * 1103515245u + 12345u, (rng >> 16)) % 5);
+            int vals[11];
+            int usedCount = 0;
+            for (int i = 0; i < count * 10 && usedCount < count; i++) {
+                rng = rng * 1103515245u + 12345u;
+                int v = 10 + (int)((rng >> 16) % 90);
+                bool dup = false;
+                for (int j = 0; j < usedCount; j++) if (vals[j] == v) { dup = true; break; }
+                if (!dup) vals[usedCount++] = v;
+            }
+            heap.buildMaxHeap(vals, usedCount);
+            eventLog.clear();
+            syncHeapVisuals();
+            hud.setStatus("SANDBOX RANDOM: Generated random Max Heap.", "Max-Heap property guaranteed. Try extract, sort, sift.");
+        }
+        
+        selectedNodeIndex = -1;
+        eventController.clear();
+        setupButtons();
+    }
+
+    void handleSandboxResetAction() {
+        if (!isScreen("sandbox")) return;
+        
+        eventController.clear();
+        selectedNodeIndex = -1;
+        
+        if (isAct("act_1")) {
+            binTree.destroyTree(binTree.root);
+            binTree.root = nullptr;
+            layout.clear();
+            inputBox.setValue(50);
+            hud.setStatus("SANDBOX RESET: Binary Tree cleared.", "Insert nodes or click Random to generate a new tree.");
+        } else if (isAct("act_2")) {
+            while (!bst.isEmpty()) bst.deleteNode(bst.getRoot()->key);
+            layout.clear();
+            inputBox.setValue(50);
+            hud.setStatus("SANDBOX RESET: BST cleared.", "Insert nodes to build a BST or click Random.");
+        } else if (isAct("act_3")) {
+            avl.setEventLog(&eventLog);
+            while (!avl.isEmpty()) avl.deleteNode(avl.getRoot()->key);
+            eventLog.clear();
+            layout.clear();
+            inputBox.setValue(25);
+            hud.setStatus("SANDBOX RESET: AVL Tree cleared.", "Insert nodes; AVL auto-balances after every insertion.");
+        } else if (isAct("act_4")) {
+            // Clear heap by rebuilding with 0 elements
+            int emptyArr[1] = {0};
+            heap.buildMaxHeap(emptyArr, 0);
+            layout.clear();
+            inputBox.setValue(50);
+            hud.setStatus("SANDBOX RESET: Max Heap cleared.", "Insert values or click Random to generate a heap.");
+        }
+        
+        setupButtons();
     }
 
     int mapBinTreeNodeToVisual(TreeNode* node) {
@@ -1558,15 +1695,17 @@ public:
             eventController.loadFromEventLog(eventLog);
             eventController.start();
 
-            levelManager.scoreSystem.addAlarmStep(2);
-            levelManager.notifyAction("insert", val);
+            if (!isScreen("sandbox")) {
+                levelManager.scoreSystem.addAlarmStep(2);
+                levelManager.notifyAction("insert", val);
+            }
 
             char buf[96];
             snprintf(buf, sizeof(buf), "BST INSERT: Key %d grafted into neural hive.", val);
             hud.setStatus(buf, "Synaptic path traced and new pod illuminated.");
         } else if (isAct("act_3")) {
             if (avl.search(val)) {
-                levelManager.scoreSystem.addAlarmStep(1);
+                if (!isScreen("sandbox")) levelManager.scoreSystem.addAlarmStep(1);
                 char buf[128];
                 snprintf(buf, sizeof(buf), "AVL REJECTED: Duplicate key %d exists in vault.", val);
                 hud.setStatus(buf, "AVL nodes must have unique keys.");
@@ -1581,8 +1720,10 @@ public:
             eventController.loadFromEventLog(eventLog);
             eventController.start();
 
-            levelManager.scoreSystem.addAlarmStep(2);
-            levelManager.notifyAction("insert", val);
+            if (!isScreen("sandbox")) {
+                levelManager.scoreSystem.addAlarmStep(2);
+                levelManager.notifyAction("insert", val);
+            }
 
             char buf[128];
             snprintf(buf, sizeof(buf), "AVL INSERT: Key %d grafted. Height rebalanced (|BF| <= 1).", val);
@@ -1596,8 +1737,10 @@ public:
             eventController.loadFromEventLog(eventLog);
             eventController.start();
 
-            levelManager.scoreSystem.addAlarmStep(2);
-            levelManager.notifyAction("insert", val);
+            if (!isScreen("sandbox")) {
+                levelManager.scoreSystem.addAlarmStep(2);
+                levelManager.notifyAction("insert", val);
+            }
 
             char buf[96];
             snprintf(buf, sizeof(buf), "HEAP INSERT: Value %d appended and sifted up.", val);
@@ -1652,8 +1795,10 @@ public:
                 eventController.loadFromEventLog(eventLog);
                 eventController.start();
 
-                levelManager.scoreSystem.addAlarmStep(3);
-                levelManager.notifyAction("delete", keyToDelete);
+                if (!isScreen("sandbox")) {
+                    levelManager.scoreSystem.addAlarmStep(3);
+                    levelManager.notifyAction("delete", keyToDelete);
+                }
 
                 char buf[96];
                 snprintf(buf, sizeof(buf), "BST DELETE: Severed pod with key %d from hive.", keyToDelete);
@@ -1687,8 +1832,10 @@ public:
                 eventController.loadFromEventLog(eventLog);
                 eventController.start();
 
-                levelManager.scoreSystem.addAlarmStep(3);
-                levelManager.notifyAction("delete", keyToDelete);
+                if (!isScreen("sandbox")) {
+                    levelManager.scoreSystem.addAlarmStep(3);
+                    levelManager.notifyAction("delete", keyToDelete);
+                }
 
                 char buf[96];
                 snprintf(buf, sizeof(buf), "AVL DELETE: Severed pod with key %d.", keyToDelete);
@@ -1732,14 +1879,14 @@ public:
                     cur = cur->right;
                 }
             }
-            levelManager.scoreSystem.addAlarmStep(2);
+            if (!isScreen("sandbox")) levelManager.scoreSystem.addAlarmStep(2);
             if (found) {
                 eventLog.logVisit(cur->id, targetKey);
                 eventLog.logDone("Search target pod located!");
                 char buf[96];
                 snprintf(buf, sizeof(buf), "SEARCH HIT: Pod with key %d located in BST!", targetKey);
                 hud.setStatus(buf, "Synaptic path illuminated to target pod.");
-                levelManager.notifyAction("search", targetKey);
+                if (!isScreen("sandbox")) levelManager.notifyAction("search", targetKey);
             } else {
                 eventLog.logDone("Target key not in BST.");
                 char buf[96];
@@ -1757,12 +1904,12 @@ public:
                     break;
                 }
             }
-            levelManager.scoreSystem.addAlarmStep(1);
+            if (!isScreen("sandbox")) levelManager.scoreSystem.addAlarmStep(1);
             if (found) {
                 char buf[96];
                 snprintf(buf, sizeof(buf), "AVL SEARCH HIT: Key %d located in O(log N) time!", targetKey);
                 hud.setStatus(buf, "Bioluminescent synaptic pod illuminated.");
-                levelManager.notifyAction("search", targetKey);
+                if (!isScreen("sandbox")) levelManager.notifyAction("search", targetKey);
             } else {
                 char buf[96];
                 snprintf(buf, sizeof(buf), "AVL SEARCH MISS: Key %d not found in AVL vault.", targetKey);
@@ -1794,8 +1941,10 @@ public:
             }
         }
 
-        levelManager.scoreSystem.addAlarmStep(2);
-        levelManager.notifyAction("range", 0);
+        if (!isScreen("sandbox")) {
+            levelManager.scoreSystem.addAlarmStep(2);
+            levelManager.notifyAction("range", 0);
+        }
 
         char buf[96];
         snprintf(buf, sizeof(buf), "RANGE QUERY [%d, %d]: %d pods glowing in hive.", lo, hi, matchCount);
@@ -1826,8 +1975,10 @@ public:
             }
         }
 
-        levelManager.scoreSystem.addAlarmStep(1);
-        levelManager.notifyAction("kth", k);
+        if (!isScreen("sandbox")) {
+            levelManager.scoreSystem.addAlarmStep(1);
+            levelManager.notifyAction("kth", k);
+        }
 
         char buf[96];
         snprintf(buf, sizeof(buf), "AVL K-TH ELEMENT (k = %d): Key %d identified in O(log N)!", k, key);
@@ -1854,8 +2005,10 @@ public:
         }
 
         int r = avl.rank(targetKey);
-        levelManager.scoreSystem.addAlarmStep(1);
-        levelManager.notifyAction("rank", targetKey);
+        if (!isScreen("sandbox")) {
+            levelManager.scoreSystem.addAlarmStep(1);
+            levelManager.notifyAction("rank", targetKey);
+        }
 
         char buf[96];
         snprintf(buf, sizeof(buf), "AVL RANK: Pod with key %d has Rank %d (1-based position).", targetKey, r);
@@ -1878,7 +2031,9 @@ public:
         }
         eventLog.clear();
 
-        levelManager.scoreSystem.addAlarmStep(2);
+        if (!isScreen("sandbox")) {
+            levelManager.scoreSystem.addAlarmStep(2);
+        }
 
         if (strcmp(rotType, "LL") == 0) {
             avl.insert(30);
@@ -1887,7 +2042,7 @@ public:
             avl.insert(10);
             hud.setStatus("AVL DEMO (LL Rotation): Inserted 10 -> BF(30) = +2. Rebalanced via Right Rotation!",
                           "Pivot 20 promoted to root. Heights and badges balanced.");
-            levelManager.notifyAction("demo_ll", 0);
+            if (!isScreen("sandbox")) levelManager.notifyAction("demo_ll", 0);
         } else if (strcmp(rotType, "RR") == 0) {
             avl.insert(10);
             avl.insert(20);
@@ -1895,7 +2050,7 @@ public:
             avl.insert(30);
             hud.setStatus("AVL DEMO (RR Rotation): Inserted 30 -> BF(10) = -2. Rebalanced via Left Rotation!",
                           "Pivot 20 promoted to root. Heights and badges balanced.");
-            levelManager.notifyAction("demo_rr", 0);
+            if (!isScreen("sandbox")) levelManager.notifyAction("demo_rr", 0);
         } else if (strcmp(rotType, "LR") == 0) {
             avl.insert(30);
             avl.insert(10);
@@ -1903,7 +2058,7 @@ public:
             avl.insert(20);
             hud.setStatus("AVL DEMO (LR Rotation): Inserted 20 -> Left-Right Double Rotation executed!",
                           "Rotated left around 10, then right around 30. Pivot 20 promoted to root.");
-            levelManager.notifyAction("demo_lr", 0);
+            if (!isScreen("sandbox")) levelManager.notifyAction("demo_lr", 0);
         } else if (strcmp(rotType, "RL") == 0) {
             avl.insert(10);
             avl.insert(30);
@@ -1911,7 +2066,7 @@ public:
             avl.insert(20);
             hud.setStatus("AVL DEMO (RL Rotation): Inserted 20 -> Right-Left Double Rotation executed!",
                           "Rotated right around 30, then left around 10. Pivot 20 promoted to root.");
-            levelManager.notifyAction("demo_rl", 0);
+            if (!isScreen("sandbox")) levelManager.notifyAction("demo_rl", 0);
         }
 
         syncAVLVisuals();
@@ -1929,8 +2084,10 @@ public:
         takeSnapshot();
         binTree.mirror(binTree.root);
         syncBinaryTreeVisuals();
-        levelManager.scoreSystem.addAlarmStep(2);
-        levelManager.notifyAction("mirror", 0);
+        if (!isScreen("sandbox")) {
+            levelManager.scoreSystem.addAlarmStep(2);
+            levelManager.notifyAction("mirror", 0);
+        }
 
         hud.setStatus("TREE MIRRORED: Inverted all left and right child connections.",
                       "Bilateral reflection applied across the central trunk.");
@@ -1952,8 +2109,10 @@ public:
                 layout.nodes[i].setState("highlighted");
             }
         }
-        levelManager.scoreSystem.addAlarmStep(2);
-        levelManager.notifyAction("height_diam", 0);
+        if (!isScreen("sandbox")) {
+            levelManager.scoreSystem.addAlarmStep(2);
+            levelManager.notifyAction("height_diam", 0);
+        }
 
         char buf[96];
         snprintf(buf, sizeof(buf), "TREE METRICS: Height = %d levels, Diameter = %d edges.", h, d);
@@ -1987,8 +2146,10 @@ public:
             }
         }
 
-        levelManager.scoreSystem.addAlarmStep(2);
-        levelManager.notifyAction("lca", 0);
+        if (!isScreen("sandbox")) {
+            levelManager.scoreSystem.addAlarmStep(2);
+            levelManager.notifyAction("lca", 0);
+        }
 
         char buf[128];
         snprintf(buf, sizeof(buf), "LCA & PATH: LCA(%d, %d) = %d | Path Distance = %d edges.", a, b, lcaVal, pathLen);
@@ -2003,7 +2164,9 @@ public:
     void handleSymmetryAction() {
         if (!isAct("act_1")) return;
         bool sym = binTree.isSymmetric();
-        levelManager.scoreSystem.addAlarmStep(1);
+        if (!isScreen("sandbox")) {
+            levelManager.scoreSystem.addAlarmStep(1);
+        }
         if (sym) {
             hud.setStatus("SYMMETRY CHECK: Tree is strictly symmetric!", "Left and right subtrees are mirror images.");
         } else {
@@ -2018,8 +2181,10 @@ public:
         int in[]  = {12, 25, 37, 50, 62, 75, 88};
         binTree.reconstructFromPreIn(pre, in, 7);
         syncBinaryTreeVisuals();
-        levelManager.scoreSystem.addAlarmStep(3);
-        levelManager.notifyAction("reconstruct", 0);
+        if (!isScreen("sandbox")) {
+            levelManager.scoreSystem.addAlarmStep(3);
+            levelManager.notifyAction("reconstruct", 0);
+        }
 
         hud.setStatus("TREE RECONSTRUCTION: Rebuilt 7-node tree from Preorder + Inorder sequences.",
                       "Original neural blueprint regenerated perfectly.");
@@ -2044,8 +2209,10 @@ public:
         eventController.loadFromEventLog(eventLog);
         eventController.start();
 
-        levelManager.scoreSystem.addAlarmStep(3);
-        levelManager.notifyAction("extract_max", 0);
+        if (!isScreen("sandbox")) {
+            levelManager.scoreSystem.addAlarmStep(3);
+            levelManager.notifyAction("extract_max", 0);
+        }
 
         char buf[96];
         snprintf(buf, sizeof(buf), "EXTRACT MAX: Retrieved highest priority value %d.", maxVal);
@@ -2069,8 +2236,10 @@ public:
         eventController.loadFromEventLog(eventLog);
         eventController.start();
 
-        levelManager.scoreSystem.addAlarmStep(4);
-        levelManager.notifyAction("build_heap", 0);
+        if (!isScreen("sandbox")) {
+            levelManager.scoreSystem.addAlarmStep(4);
+            levelManager.notifyAction("build_heap", 0);
+        }
 
         hud.setStatus("BUILD MAX HEAP: Floyd's algorithm executed in O(N) time.",
                       "Internal parent nodes sifted down from lowest levels to root.");
@@ -2095,8 +2264,10 @@ public:
         eventController.loadFromEventLog(eventLog);
         eventController.start();
 
-        levelManager.scoreSystem.addAlarmStep(5);
-        levelManager.notifyAction("heap_sort", 0);
+        if (!isScreen("sandbox")) {
+            levelManager.scoreSystem.addAlarmStep(5);
+            levelManager.notifyAction("heap_sort", 0);
+        }
 
         hud.setStatus("HEAP SORT: Sorting sequence animated via repeated extract-max.",
                       "Synchronized 1D array displays extracted elements in final sorted order.");
@@ -2141,8 +2312,10 @@ public:
         eventController.loadFromEventLog(eventLog);
         eventController.start();
 
-        levelManager.scoreSystem.addAlarmStep(2);
-        levelManager.notifyAction("sift_down", 0);
+        if (!isScreen("sandbox")) {
+            levelManager.scoreSystem.addAlarmStep(2);
+            levelManager.notifyAction("sift_down", 0);
+        }
         hud.setStatus("SIFT DOWN [0]: Root pod sifted down to maintain max-heap invariant.");
 
         if (isScreen("level_play") && strcmp(levelManager.playState, "victory") == 0) {
@@ -2165,8 +2338,10 @@ public:
         eventController.loadFromEventLog(eventLog);
         eventController.start();
 
-        levelManager.scoreSystem.addAlarmStep(2);
-        levelManager.notifyAction("sift_up", 0);
+        if (!isScreen("sandbox")) {
+            levelManager.scoreSystem.addAlarmStep(2);
+            levelManager.notifyAction("sift_up", 0);
+        }
         hud.setStatus("SIFT UP [end]: Last pod sifted up to maintain max-heap invariant.");
 
         if (isScreen("level_play") && strcmp(levelManager.playState, "victory") == 0) {
@@ -2356,6 +2531,8 @@ public:
             case 102: setupDefaultAct2BST(); setupButtons(); break;
             case 103: setupDefaultAct3AVL(); setupButtons(); break;
             case 104: setupDefaultAct4Heap(); setupButtons(); break;
+            case 220: handleSandboxResetAction(); break;
+            case 221: handleSandboxRandomAction(); break;
 
             case 50: inputBox.adjustValue(-5); break;
             case 51: inputBox.adjustValue(+5); break;
@@ -2368,8 +2545,10 @@ public:
                 eventLog.logDone("Preorder traversal complete");
                 eventController.loadFromEventLog(eventLog);
                 eventController.start();
-                levelManager.scoreSystem.addAlarmStep(layout.nodeCount);
-                levelManager.notifyAction("preorder", 0);
+                if (!isScreen("sandbox")) {
+                    levelManager.scoreSystem.addAlarmStep(layout.nodeCount);
+                    levelManager.notifyAction("preorder", 0);
+                }
                 char seqBuf[128] = {0};
                 int offset = 0;
                 collectPreorderSequence(layout.findRootIndex(), seqBuf, sizeof(seqBuf), offset);
@@ -2386,8 +2565,10 @@ public:
                 eventLog.logDone("Inorder traversal complete");
                 eventController.loadFromEventLog(eventLog);
                 eventController.start();
-                levelManager.scoreSystem.addAlarmStep(layout.nodeCount);
-                levelManager.notifyAction("inorder", 0);
+                if (!isScreen("sandbox")) {
+                    levelManager.scoreSystem.addAlarmStep(layout.nodeCount);
+                    levelManager.notifyAction("inorder", 0);
+                }
                 char seqBuf[128] = {0};
                 int offset = 0;
                 collectInorderSequence(layout.findRootIndex(), seqBuf, sizeof(seqBuf), offset);
@@ -2404,8 +2585,10 @@ public:
                 eventLog.logDone("Postorder traversal complete");
                 eventController.loadFromEventLog(eventLog);
                 eventController.start();
-                levelManager.scoreSystem.addAlarmStep(layout.nodeCount);
-                levelManager.notifyAction("postorder", 0);
+                if (!isScreen("sandbox")) {
+                    levelManager.scoreSystem.addAlarmStep(layout.nodeCount);
+                    levelManager.notifyAction("postorder", 0);
+                }
                 char seqBuf[128] = {0};
                 int offset = 0;
                 collectPostorderSequence(layout.findRootIndex(), seqBuf, sizeof(seqBuf), offset);
@@ -2422,8 +2605,10 @@ public:
                 eventLog.logDone("Level-order traversal complete");
                 eventController.loadFromEventLog(eventLog);
                 eventController.start();
-                levelManager.scoreSystem.addAlarmStep(layout.nodeCount);
-                levelManager.notifyAction("level_order", 0);
+                if (!isScreen("sandbox")) {
+                    levelManager.scoreSystem.addAlarmStep(layout.nodeCount);
+                    levelManager.notifyAction("level_order", 0);
+                }
                 char seqBuf[128] = {0};
                 int offset = 0;
                 collectLevelOrderSequence(seqBuf, sizeof(seqBuf), offset);
@@ -3693,7 +3878,11 @@ public:
         }
 
         // Sync alarm and score
-        if (isScreen("level_play")) {
+        if (isScreen("sandbox")) {
+            hud.alarmSteps = 0;
+            hud.alarmCapacity = 100;
+            hud.score = 0;
+        } else if (isScreen("level_play")) {
             hud.alarmSteps = levelManager.scoreSystem.alarmSteps;
             hud.alarmCapacity = levelManager.scoreSystem.alarmCapacity;
             hud.score = levelManager.scoreSystem.currentScore;
@@ -4237,7 +4426,17 @@ public:
             scoreText.setFillColor(sf::Color(255, 215, 0)); scoreText.setPosition(18.0f, 130.0f); window.draw(scoreText);
         }
 
-        hud.render(window, renderer.font, !isScreen("endless"));
+        hud.render(window, renderer.font, !isScreen("endless") && !isScreen("sandbox"));
+        if (isScreen("sandbox")) {
+            sf::Text sandboxLabel;
+            sandboxLabel.setFont(renderer.font);
+            sandboxLabel.setString("SANDBOX LAB (Free-form Mode)");
+            sandboxLabel.setCharacterSize(13);
+            sandboxLabel.setStyle(sf::Text::Bold);
+            sandboxLabel.setFillColor(sf::Color(0, 220, 180, 220));
+            sandboxLabel.setPosition(520.0f, 16.0f);
+            window.draw(sandboxLabel);
+        }
         if (inputBox.x > 0.0f) {
             inputBox.render(window, renderer.font);
         }
