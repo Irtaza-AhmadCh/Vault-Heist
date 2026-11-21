@@ -252,6 +252,30 @@ void AVLTree::deleteNode(int key) {
     }
 }
 
+AVLNode* AVLTree::deleteRawRecursive(AVLNode* node, int key) {
+    if (!node) return nullptr;
+    if (key < node->key) node->left = deleteRawRecursive(node->left, key);
+    else if (key > node->key) node->right = deleteRawRecursive(node->right, key);
+    else {
+        if (!node->left || !node->right) {
+            AVLNode* child = node->left ? node->left : node->right;
+            if (child) child->parent = node->parent;
+            delete node;
+            return child;
+        }
+        AVLNode* successor = findMin(node->right);
+        node->key = successor->key; node->value = successor->value;
+        node->right = deleteRawRecursive(node->right, successor->key);
+    }
+    updateHeightAndSize(node);
+    return node;
+}
+
+void AVLTree::deleteRawNode(int key) {
+    root = deleteRawRecursive(root, key);
+    if (root) root->parent = nullptr;
+}
+
 bool AVLTree::search(int key) const {
     AVLNode* curr = root;
     while (curr != nullptr) {

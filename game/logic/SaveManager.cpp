@@ -140,7 +140,7 @@ bool SaveManager::deserializeHeap(const char* buffer, int* arr, int& n, int maxN
 }
 
 bool SaveManager::saveEndless(const char* filepath, const EndlessSaveData& data) {
-    if (filepath == nullptr) return false;
+    if (filepath == nullptr || data.keyCount < 0 || data.keyCount > 32) return false;
     FILE* f = fopen(filepath, "w");
     if (f == nullptr) return false;
     fprintf(f, "%d %d %d %d\n", data.wave, data.score, data.seed, data.keyCount);
@@ -160,8 +160,12 @@ bool SaveManager::loadEndless(const char* filepath, EndlessSaveData& data) {
         fclose(f);
         return false;
     }
+    if (data.keyCount < 0 || data.keyCount > 32) {
+        fclose(f);
+        return false;
+    }
     for (int i = 0; i < data.keyCount; i++) {
-        if (fscanf(f, "%d", &data.keys[i]) != 1) break;
+        if (fscanf(f, "%d", &data.keys[i]) != 1) { fclose(f); return false; }
     }
     fclose(f);
     return true;

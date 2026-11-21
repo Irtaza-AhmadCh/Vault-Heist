@@ -83,6 +83,19 @@ public:
     // Endless mode timer
     float endlessTimer;
     int endlessWave;
+    float endlessElapsed;
+    float endlessDeadline;
+    int endlessSeed;
+    unsigned int endlessRng;
+    int endlessOperationKey;
+    bool endlessInsert;
+    bool endlessOperationActive;
+    bool endlessRepairing;
+    int endlessRepairPivot;
+    int endlessCompleted;
+    bool endlessRunRecorded;
+    int endlessScores[10];
+    int endlessScoreCount;
 
     GameScreen() : eventLog(128) {
         setScreenState("menu");
@@ -100,6 +113,11 @@ public:
         act3StageTransitionTimer = 0.0f;
         endlessTimer = 0.0f;
         endlessWave = 1;
+        endlessElapsed = 0.0f; endlessDeadline = 10.0f; endlessSeed = 1; endlessRng = 1;
+        endlessOperationKey = 0; endlessInsert = true; endlessOperationActive = false;
+        endlessRepairing = false; endlessRepairPivot = -1;
+        endlessCompleted = 0; endlessRunRecorded = false; endlessScoreCount = 0;
+        for (int i = 0; i < 10; ++i) endlessScores[i] = 0;
 
         isPanning = false;
         viewCenter = sf::Vector2f(640.0f, 360.0f);
@@ -130,6 +148,96 @@ public:
     bool isAct(const char* act) const {
         if (act == nullptr) return false;
         return strcmp(currentAct, act) == 0;
+    }
+
+    void loadEndlessScores() {
+        FILE* f = fopen("levels/endless_leaderboard.dat", "r");
+        endlessScoreCount = 0;
+        if (!f) return;
+        int score = 0;
+        while (endlessScoreCount < 10 && fscanf(f, "%d", &score) == 1) endlessScores[endlessScoreCount++] = score;
+        fclose(f);
+    }
+
+    void recordEndlessScore() {
+        if (endlessRunRecorded) return;
+        endlessRunRecorded = true;
+        loadEndlessScores();
+        int scores[11], n = endlessScoreCount;
+        for (int i = 0; i < n; ++i) scores[i] = endlessScores[i];
+        scores[n++] = static_cast<int>(endlessElapsed);
+        for (int i = 0; i < n; ++i) for (int j = i + 1; j < n; ++j)
+            if (scores[j] > scores[i]) { int t = scores[i]; scores[i] = scores[j]; scores[j] = t; }
+        endlessScoreCount = n < 10 ? n : 10;
+        FILE* f = fopen("levels/endless_leaderboard.dat", "w");
+        for (int i = 0; i < endlessScoreCount; ++i) { endlessScores[i] = scores[i]; if (f) fprintf(f, "%d\n", scores[i]); }
+        if (f) fclose(f);
+    }
+
+    bool hasEndlessSave() {
+        EndlessSaveData data;
+        return SaveManager::loadEndless("levels/endless_save.dat", data) && data.keyCount > 0 && data.keyCount <= 32;
+    }
+
+    void saveEndlessProgress() {
+        EndlessSaveData data;
+        data.wave = endlessCompleted; data.score = static_cast<int>(endlessElapsed); data.seed = endlessRng;
+        data.keyCount = avl.getRootSize();
+        if (data.keyCount > 32) data.keyCount = 32;
+        for (int i = 0; i < data.keyCount; ++i) data.keys[i] = avl.kth(i + 1);
+        SaveManager::saveEndless("levels/endless_save.dat", data);
+    }
+
+    AVLNode* findEndlessImbalance(AVLNode* node) {
+        if (!node) return nullptr;
+        AVLNode* found = findEndlessImbalance(node->left);
+        if (found) return found;
+        found = findEndlessImbalance(node->right);
+        if (found) return found;
+        return (avl.balanceFactor(node) < -1 || avl.balanceFactor(node) > 1) ? node : nullptr;
+    }
+
+    const char* endlessRotationCase(AVLNode* node) const {
+        if (!node) return "?";
+        int bf = avl.balanceFactor(node);
+        if (bf > 1) return avl.balanceFactor(node->left) >= 0 ? "LL" : "LR";
+        if (bf < -1) return avl.balanceFactor(node->right) <= 0 ? "RR" : "RL";
+        return "?";
+    }
+
+    void finishEndlessOperation() {
+        if (!avl.isBalanced()) return;
+        endlessRepairing = false; endlessRepairPivot = -1;
+        endlessTimer = 0.0f;
+        endlessCompleted++; endlessWave++; endlessOperationActive = false;
+        saveEndlessProgress();
+        generateEndlessOperation();
+        setupButtons();
+    }
+
+    void generateEndlessOperation() {
+        if (endlessOperationActive || !isScreen("endless")) return;
+        endlessRng = endlessRng * 1103515245u + 12345u;
+        bool insert = ((static_cast<unsigned>(endlessRng) >> 16) & 1u) != 0;
+        int size = avl.getRootSize();
+        if (size <= 3) insert = true;
+        if (size >= 20) insert = false;
+        if (insert) {
+            for (int tries = 0; tries < 200; ++tries) {
+                endlessRng = endlessRng * 1103515245u + 12345u;
+                int key = 10 + static_cast<int>((static_cast<unsigned>(endlessRng) >> 16) % 90);
+                if (!avl.search(key)) { endlessOperationKey = key; break; }
+            }
+        } else {
+            endlessRng = endlessRng * 1103515245u + 12345u;
+            int rank = 1 + static_cast<int>((static_cast<unsigned>(endlessRng) >> 16) % size);
+            endlessOperationKey = avl.kth(rank);
+        }
+        endlessInsert = insert;
+        endlessOperationActive = true;
+        endlessDeadline = 10.0f;
+        inputBox.setValue(endlessOperationKey);
+        setupButtons();
     }
 
     bool initialize(const char* assetsDir) {
@@ -339,7 +447,19 @@ public:
             by += bh + bgap;
             buttons[buttonCount++] = BioButton(bx, by, bw, bh, "3. ENDLESS MODE (Survival)", 212);
             by += bh + bgap;
-            buttons[buttonCount++] = BioButton(bx, by, bw, bh, "4. QUIT GAME", 213);
+            buttons[buttonCount++] = BioButton(bx, by, bw, bh, "4. ENDLESS SCOREBOARD", 214);
+            by += bh + bgap;
+            buttons[buttonCount++] = BioButton(bx, by, bw, bh, "5. QUIT GAME", 213);
+            return;
+        }
+
+        if (isScreen("leaderboard")) {
+            buttons[buttonCount++] = BioButton(540.0f, 620.0f, 200.0f, 38.0f, "< Back to Main Menu", 200);
+            return;
+        }
+        if (isScreen("endless_menu")) {
+            buttons[buttonCount++] = BioButton(490.0f, 350.0f, 300.0f, 42.0f, "START NEW RUN", 215, true);
+            buttons[buttonCount++] = BioButton(490.0f, 405.0f, 300.0f, 42.0f, "< BACK TO MAIN MENU", 200);
             return;
         }
 
@@ -402,8 +522,16 @@ public:
 
         float x1 = 15.0f;
 
+        if (isScreen("endless")) {
+            buttons[buttonCount++] = BioButton(x1, row1Y, 150.0f, btnH,
+                endlessRepairing ? "Drag pivot to repair" : (endlessInsert ? "Submit INSERT" : "Submit DELETE"),
+                216, !endlessRepairing);
+            buttons[buttonCount++] = BioButton(1185.0f, row1Y, 80.0f, btnH, "< Menu", 217);
+            inputBox.x = -500.0f; inputBox.y = -500.0f;
+            return;
+        }
+
         if (isScreen("level_play")) {
-            // Level Play: Clean Navigation only (< Map)
             buttons[buttonCount++] = BioButton(x1, row1Y, 82.0f, btnH, "< Map", 205);
             x1 += 82.0f + gap * 2.0f;
         } else {
@@ -731,7 +859,7 @@ public:
         }
 
         // Far right Menu button in sandbox
-        if (isScreen("sandbox")) {
+        if (isScreen("sandbox") || isScreen("level_play")) {
             buttons[buttonCount++] = BioButton(1185.0f, row1Y, 80.0f, btnH, "< Menu", 200);
         }
 
@@ -2118,13 +2246,57 @@ public:
                           "Freely switch acts and experiment with any data structure without level limits.");
             return;
         } else if (actionId == 212) { // Endless Mode
+            setScreenState("endless_menu");
+            loadEndlessScores();
+            setupButtons();
+            hud.setStatus("ENDLESS AVL SURVIVAL", "Complete each supplied insert or delete before its timer expires.");
+            return;
+        } else if (actionId == 214) { // Endless leaderboard
+            setScreenState("leaderboard");
+            loadEndlessScores();
+            setupButtons();
+            return;
+        } else if (actionId == 215) { // Start new endless run
             setScreenState("endless");
             setupDefaultAct3AVL();
-            endlessTimer = 0.0f;
-            endlessWave = 1;
+            endlessSeed = static_cast<int>(time(nullptr));
+            endlessRng = endlessSeed;
+            endlessElapsed = 0.0f; endlessTimer = 0.0f; endlessWave = 0; endlessCompleted = 0;
+            endlessRunRecorded = false;
+            endlessOperationActive = false; endlessRepairing = false; endlessRepairPivot = -1;
+            syncAVLVisuals();
+            saveEndlessProgress();
             setupButtons();
-            hud.setStatus("ENDLESS MODE: Continuous Neural Swarm Defense.",
-                          "Maintain valid AVL tree properties under continuous insertions!");
+            generateEndlessOperation();
+            hud.setStatus("ENDLESS MODE: Keep the AVL valid and answer each operation before time runs out.",
+                          "Survival time is your score. Operations arrive faster as you survive.");
+            return;
+        } else if (actionId == 216) { // Submit endless operation
+            if (!isScreen("endless") || !endlessOperationActive || endlessRepairing) return;
+            eventLog.clear();
+            if (endlessInsert) avl.insertRaw(endlessOperationKey); else avl.deleteRawNode(endlessOperationKey);
+            syncAVLVisualsAnimated();
+            if (!avl.isBalanced()) {
+                AVLNode* pivot = findEndlessImbalance(avl.getRoot());
+                endlessRepairing = pivot != nullptr; endlessRepairPivot = pivot ? pivot->key : -1;
+                endlessTimer = 0.0f;
+                int idx = findVisualNodeByKey(endlessRepairPivot);
+                if (idx != -1) layout.nodes[idx].setState("target");
+                char msg[128];
+                snprintf(msg, sizeof(msg), "Imbalance at %d: %s. Drag this pivot left for LR/RL or right for LL/RR.",
+                         endlessRepairPivot, endlessRotationCase(pivot));
+                hud.setStatus(msg, "Drag the highlighted pivot horizontally to apply the required rotation.");
+                setupButtons();
+                return;
+            }
+            finishEndlessOperation();
+            eventController.loadFromEventLog(eventLog); eventController.start();
+            hud.setStatus(endlessInsert ? "INSERT completed and AVL validated." : "DELETE completed and AVL validated.");
+            return;
+        } else if (actionId == 217) { // Quit endless run to menu
+            recordEndlessScore();
+            endlessOperationActive = false; endlessRepairing = false; endlessTimer = 0.0f;
+            setScreenState("menu"); setupButtons();
             return;
         } else if (actionId == 213) { // Quit
             exit(0);
@@ -2882,6 +3054,17 @@ public:
             if (event.mouseButton.button == sf::Mouse::Left) {
                 inputBox.handleClick(mx, my);
 
+                if (isScreen("endless") && endlessRepairing && my > 125.0f && my < 680.0f) {
+                    sf::Vector2f worldPos = window.mapPixelToCoords(sf::Vector2i(event.mouseButton.x, event.mouseButton.y), cameraView);
+                    int nodeIdx = layout.findNodeAt(worldPos.x, worldPos.y);
+                    if (nodeIdx != -1 && layout.nodes[nodeIdx].key == endlessRepairPivot) {
+                        isDraggingAVLNode = true; draggedAVLNodeIndex = nodeIdx;
+                        draggedAVLNodeKey = endlessRepairPivot; draggedAVLLevelNumber = -99;
+                        avlDragStartX = worldPos.x; selectedNodeIndex = nodeIdx;
+                        layout.nodes[nodeIdx].setState("swapping");
+                    }
+                }
+
                 // Manual AVL repair levels use horizontal pivot drags to choose rotations.
                 if (isScreen("level_play") && isAct("act_3") && levelManager.getCurrentLevel() &&
                     !isAct3StageTransitionPending && my > 125.0f && my < 680.0f) {
@@ -3343,6 +3526,39 @@ public:
             }
         } else if (event.type == sf::Event::MouseButtonReleased) {
             if (event.mouseButton.button == sf::Mouse::Left && isDraggingAVLNode) {
+                if (isScreen("endless") && draggedAVLLevelNumber == -99) {
+                    sf::Vector2f released = window.mapPixelToCoords(sf::Vector2i(event.mouseButton.x, event.mouseButton.y), cameraView);
+                    float dx = released.x - avlDragStartX;
+                    AVLNode* pivot = avl.findNode(endlessRepairPivot);
+                    const char* rotation = endlessRotationCase(pivot);
+                    bool left = strcmp(rotation, "LR") == 0 || strcmp(rotation, "RL") == 0;
+                    bool correctGesture = left ? dx < -24.0f : dx > 24.0f;
+                    bool ok = false;
+                    eventLog.clear(); avl.setEventLog(&eventLog);
+                    if (correctGesture && strcmp(rotation, "LL") == 0) ok = avl.manualRotateRight(endlessRepairPivot);
+                    else if (correctGesture && strcmp(rotation, "RR") == 0) ok = avl.manualRotateLeft(endlessRepairPivot);
+                    else if (correctGesture && strcmp(rotation, "LR") == 0) ok = avl.manualRotateLR(endlessRepairPivot);
+                    else if (correctGesture && strcmp(rotation, "RL") == 0) ok = avl.manualRotateRL(endlessRepairPivot);
+                    if (ok) {
+                        syncAVLVisualsAnimated();
+                        eventController.loadFromEventLog(eventLog); eventController.start();
+                        if (avl.isBalanced()) {
+                            finishEndlessOperation();
+                            hud.setStatus("Rotation accepted. AVL validation passed; next operation ready.");
+                        } else {
+                            AVLNode* nextPivot = findEndlessImbalance(avl.getRoot());
+                            endlessRepairPivot = nextPivot ? nextPivot->key : -1;
+                            int idx = findVisualNodeByKey(endlessRepairPivot);
+                            if (idx != -1) layout.nodes[idx].setState("target");
+                            char msg[128]; snprintf(msg, sizeof(msg), "Additional repair at %d: %s. Drag the highlighted pivot.", endlessRepairPivot, endlessRotationCase(nextPivot));
+                            hud.setStatus(msg);
+                        }
+                    } else {
+                        syncAVLVisuals();
+                        hud.setStatus("Incorrect drag direction. The AVL model was left unchanged.");
+                    }
+                    setupButtons();
+                } else {
                 sf::Vector2f releasePos = window.mapPixelToCoords(sf::Vector2i(event.mouseButton.x, event.mouseButton.y), cameraView);
                 const float dragDistance = releasePos.x - avlDragStartX;
                 const int lvlNum = levelManager.getCurrentLevel() ? levelManager.getCurrentLevel()->levelNumber : 0;
@@ -3391,6 +3607,7 @@ public:
                 }
 
                 hud.setStatus(fb, "Drag the unbalanced pivot left or right to rotate.");
+                }
                 isDraggingAVLNode = false;
                 draggedAVLNodeIndex = -1;
                 draggedAVLNodeKey = -1;
@@ -3428,6 +3645,7 @@ public:
                     setScreenState("campaign_map");
                     setupButtons();
                 } else if (isScreen("campaign_map") || isScreen("sandbox") || isScreen("endless")) {
+                    if (isScreen("endless")) recordEndlessScore();
                     setScreenState("menu");
                     setupButtons();
                 }
@@ -3488,19 +3706,16 @@ public:
 
         hud.setAnimStatus(eventController.getState(), eventController.speedMultiplier);
 
-        // Endless mode wave generator
+        // Endless survival clock and per-operation deadline.
         if (isScreen("endless")) {
-            endlessTimer += dt;
-            if (endlessTimer >= 4.0f) {
-                endlessTimer = 0.0f;
-                endlessWave++;
-                int rVal = rand() % 90 + 10;
-                avl.insert(rVal);
-                syncAVLVisuals();
-                hud.addAlarmStep(1);
-                char buf[96];
-                snprintf(buf, sizeof(buf), "ENDLESS WAVE %d: Inserted swarm key %d. Keep AVL balanced!", endlessWave, rVal);
-                hud.setStatus(buf, "Automatic rebalancing maintained.");
+            endlessElapsed += dt;
+            if (endlessRepairing) {
+                endlessTimer += dt;
+                if (endlessTimer >= endlessDeadline) {
+                    recordEndlessScore(); setScreenState("leaderboard"); setupButtons();
+                    endlessRepairing = false;
+                    hud.setStatus("RUN ENDED: AVL rotation deadline expired.");
+                }
             }
         }
     }
@@ -3547,6 +3762,34 @@ public:
             footer.setOrigin(fb.left + fb.width * 0.5f, fb.top + fb.height * 0.5f);
             footer.setPosition(640.0f, 660.0f);
             window.draw(footer);
+            return;
+        }
+
+        if (isScreen("endless_menu") || isScreen("leaderboard")) {
+            window.setView(defaultView);
+            sf::Text title;
+            title.setFont(renderer.font); title.setCharacterSize(30); title.setStyle(sf::Text::Bold);
+            title.setFillColor(sf::Color(64, 224, 208));
+            title.setString(isScreen("leaderboard") ? "ENDLESS MODE LEADERBOARD" : "THE LIVING VAULT: ENDLESS AVL");
+            sf::FloatRect tb = title.getLocalBounds(); title.setOrigin(tb.left + tb.width * .5f, tb.top + tb.height * .5f); title.setPosition(640, 120); window.draw(title);
+            if (isScreen("endless_menu")) {
+                sf::Text desc; desc.setFont(renderer.font); desc.setCharacterSize(16); desc.setFillColor(sf::Color(220, 235, 245));
+                desc.setString("Complete mixed INSERT and DELETE requests. Keep the AVL valid and survive as long as possible.");
+                sf::FloatRect db = desc.getLocalBounds(); desc.setOrigin(db.left + db.width * .5f, db.top + db.height * .5f); desc.setPosition(640, 210); window.draw(desc);
+                sf::Text detail; detail.setFont(renderer.font); detail.setCharacterSize(14); detail.setFillColor(sf::Color(180, 200, 215));
+                detail.setString("Only one request is active at a time. Operations arrive faster as your run continues.");
+                sf::FloatRect eb = detail.getLocalBounds(); detail.setOrigin(eb.left + eb.width * .5f, eb.top + eb.height * .5f); detail.setPosition(640, 245); window.draw(detail);
+            } else if (endlessScoreCount == 0) {
+                sf::Text empty; empty.setFont(renderer.font); empty.setString("No completed runs yet"); empty.setCharacterSize(18); empty.setFillColor(sf::Color(180, 200, 215)); empty.setPosition(535, 205); window.draw(empty);
+            } else {
+                for (int i = 0; i < endlessScoreCount; ++i) {
+                    char row[64]; int seconds = endlessScores[i];
+                    snprintf(row, sizeof(row), "%2d.     %02d:%02d", i + 1, seconds / 60, seconds % 60);
+                    sf::Text score; score.setFont(renderer.font); score.setString(row); score.setCharacterSize(20);
+                    score.setFillColor(sf::Color(255, 215, 0)); score.setPosition(535, 185 + i * 34); window.draw(score);
+                }
+            }
+            for (int i = 0; i < buttonCount; ++i) buttons[i].render(window, renderer.font);
             return;
         }
 
@@ -3980,7 +4223,21 @@ public:
             renderer.renderHeapArray(window, heap.getArray(), heap.getSize(), selectedNodeIndex, layout);
         }
 
-        hud.render(window, renderer.font);
+        if (isScreen("endless")) {
+            char hudLine[160];
+            char deadlineLabel[24] = "--";
+            if (endlessRepairing) snprintf(deadlineLabel, sizeof(deadlineLabel), "%.1fs", endlessDeadline - endlessTimer);
+            snprintf(hudLine, sizeof(hudLine), "SURVIVAL %02d:%02d   OPS %d   REQUEST: %s %d   DEADLINE %s",
+                     static_cast<int>(endlessElapsed) / 60, static_cast<int>(endlessElapsed) % 60,
+                     endlessCompleted,
+                     endlessInsert ? "INSERT" : "DELETE", endlessOperationKey,
+                     deadlineLabel);
+            sf::Text scoreText; scoreText.setFont(renderer.font); scoreText.setString(hudLine);
+            scoreText.setCharacterSize(15); scoreText.setStyle(sf::Text::Bold);
+            scoreText.setFillColor(sf::Color(255, 215, 0)); scoreText.setPosition(18.0f, 130.0f); window.draw(scoreText);
+        }
+
+        hud.render(window, renderer.font, !isScreen("endless"));
         if (inputBox.x > 0.0f) {
             inputBox.render(window, renderer.font);
         }

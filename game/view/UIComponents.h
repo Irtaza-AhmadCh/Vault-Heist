@@ -263,7 +263,7 @@ public:
         score = 1000;
     }
 
-    void render(sf::RenderWindow& window, sf::Font& font) {
+    void render(sf::RenderWindow& window, sf::Font& font, bool showScore = true) {
         // Top HUD Panel (Bio-organic bar)
         sf::RectangleShape topBar(sf::Vector2f(1280.0f, 52.0f));
         topBar.setPosition(0.0f, 0.0f);
@@ -326,17 +326,18 @@ public:
             window.draw(barFill);
         }
 
-        // Score display
-        sf::Text scoreText;
-        scoreText.setFont(font);
-        char scoreBuf[32];
-        snprintf(scoreBuf, sizeof(scoreBuf), "SCORE: %d", score);
-        scoreText.setString(scoreBuf);
-        scoreText.setCharacterSize(15);
-        scoreText.setStyle(sf::Text::Bold);
-        scoreText.setFillColor(sf::Color(224, 255, 255));
-        scoreText.setPosition(890.0f, 16.0f);
-        window.draw(scoreText);
+        if (showScore) {
+            sf::Text scoreText;
+            scoreText.setFont(font);
+            char scoreBuf[32];
+            snprintf(scoreBuf, sizeof(scoreBuf), "SCORE: %d", score);
+            scoreText.setString(scoreBuf);
+            scoreText.setCharacterSize(15);
+            scoreText.setStyle(sf::Text::Bold);
+            scoreText.setFillColor(sf::Color(224, 255, 255));
+            scoreText.setPosition(890.0f, 16.0f);
+            window.draw(scoreText);
+        }
 
         // Animation playback status
         sf::Text animText;

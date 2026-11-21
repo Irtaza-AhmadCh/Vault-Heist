@@ -31,6 +31,7 @@ private:
 
     AVLNode* insertRecursive(AVLNode* node, int key, int val, AVLNode* parentNode);
     AVLNode* deleteRecursive(AVLNode* node, int key);
+    AVLNode* deleteRawRecursive(AVLNode* node, int key);
     AVLNode* findMin(AVLNode* node) const;
     void clearRecursive(AVLNode* node);
 
@@ -51,6 +52,7 @@ public:
 
     void insert(int key, int value = 0);
     void deleteNode(int key);
+    void deleteRawNode(int key);
     bool search(int key) const;
 
     int kth(int k) const;
