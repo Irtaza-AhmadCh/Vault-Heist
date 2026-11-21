@@ -19,10 +19,12 @@ if /i "%CXX%"=="g++" (
     goto :failed
 )
 
+rem Prefer the x64 SFML build that matches the 64-bit MinGW compiler
+if not defined SFML_DIR if exist "%~dp0docs\SFML-2.6.2-x64\SFML-2.6.2\lib\libsfml-graphics.a" set "SFML_DIR=%~dp0docs\SFML-2.6.2-x64\SFML-2.6.2"
 if not defined SFML_DIR if exist "E:\SFML-2.6.2\lib\libsfml-graphics.a" set "SFML_DIR=E:\SFML-2.6.2"
 if not defined SFML_DIR if exist "%~dp0docs\SFML-2.6.2\lib\libsfml-graphics.a" set "SFML_DIR=%~dp0docs\SFML-2.6.2"
 if not defined SFML_DIR if exist "C:\SFML-2.6.2\lib\libsfml-graphics.a" set "SFML_DIR=C:\SFML-2.6.2"
-if not defined SFML_DIR set "SFML_DIR=%~dp0docs\SFML-2.6.2"
+if not defined SFML_DIR set "SFML_DIR=%~dp0docs\SFML-2.6.2-x64\SFML-2.6.2"
 
 if not exist "%SFML_DIR%\include\SFML\Graphics.hpp" (
     echo [ERROR] SFML headers were not found in "%SFML_DIR%\include".
