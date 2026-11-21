@@ -38,24 +38,25 @@ void Act2Controller::initLevel(int levelNum, BST* bstModel, ScoreSystem& score) 
                  lvl22.insertKey);
         score.reset(4, 8);
     } else if (levelNum == 3) {
-        // Level 2.3: Steal and Collapse (All 3 Deletion Cases: Leaf, One Child, Two Children)
+        // Level 2.3: Steal and Collapse (All 3 Deletion Cases: Leaf 20, One Child 60, Two Children 50)
         lvl23.totalStages = 3;
         initLevel23Stage(0);
-        score.reset(7, 13);
+        score.reset(4, 8);
     } else if (levelNum == 4) {
-        // Level 2.4: Range Raid
+        // Level 2.4: Range Raid [30, 65] with subtree pruning
         lvl24.lo = 30;
-        lvl24.hi = 70;
+        lvl24.hi = 65;
         lvl24.matchingCount = 0;
         lvl24.prunedCount = 0;
         lvl24.prunedNodeCount = 0;
+        lvl24.visitedCount = 0;
         lvl24.pruningBonus = 150;
         lvl24.isExecuted = false;
         lvl24.isLevelComplete = false;
         snprintf(lvl24.statusMsg, sizeof(lvl24.statusMsg),
                  "RANGE RAID: Range [%d, %d]. Click 'Scan Range' to execute range query and prune out-of-bounds subtrees.",
                  lvl24.lo, lvl24.hi);
-        score.reset(5, 10);
+        score.reset(6, 11);
     } else if (levelNum == 5) {
         // Level 2.5: Boss: The Lazy Architect
         lvl25.stage = 0; // Stage A: Insertion
@@ -86,14 +87,15 @@ void Act2Controller::populateInitialBST(int lvlNum) {
         currentBST->deleteNode(currentBST->getRoot()->key);
     }
 
-    if (lvlNum == 1 || lvlNum == 2 || lvlNum == 3) {
+    if (lvlNum == 1 || lvlNum == 2) {
         // Standard balanced BST: 50, 30, 70, 20, 40, 60, 85
         int keys[7] = {50, 30, 70, 20, 40, 60, 85};
         for (int i = 0; i < 7; i++) currentBST->insert(keys[i]);
-    } else if (lvlNum == 4) {
-        // Range Raid BST with distinct branches to prune: 50, 20, 80, 10, 35, 65, 90, 5, 15, 30, 40
-        int keys[11] = {50, 20, 80, 10, 35, 65, 90, 5, 15, 30, 40};
-        for (int i = 0; i < 11; i++) currentBST->insert(keys[i]);
+    } else if (lvlNum == 3 || lvlNum == 4) {
+        // Exact spec tree for Level 2.3 and Level 2.4:
+        // 50, 30, 70, 20, 40, 60, 80, 65
+        int keys[8] = {50, 30, 70, 20, 40, 60, 80, 65};
+        for (int i = 0; i < 8; i++) currentBST->insert(keys[i]);
     } else if (lvlNum == 5) {
         // Empty tree initially for Boss level (built by player)
     }
@@ -299,76 +301,50 @@ void Act2Controller::initLevel23Stage(int stageNum) {
     lvl23.isLevelComplete = false;
 
     if (stageNum == 0) {
-        // Stage 0: Leaf Node (20)
+        // Stage 1: Leaf Node (20)
         lvl23.deleteKey = 20;
         lvl23.expectedCase = 0; // Leaf
         lvl23.expectedSuccessor = -1;
-        lvl23.currentNodeKey = 50;
-        strncpy(lvl23.phase, "search", sizeof(lvl23.phase));
+        lvl23.currentNodeKey = 20;
+        strncpy(lvl23.phase, "case_select", sizeof(lvl23.phase));
         snprintf(lvl23.statusMsg, sizeof(lvl23.statusMsg),
-                 "STAGE 1/3 (Case 1: Leaf): Locate target leaf pod %d. Follow comparisons from root.",
+                 "STAGE 1/3 (Leaf Node): Target is pod %d. Identify which deletion case applies below.",
                  lvl23.deleteKey);
     } else if (stageNum == 1) {
-        // Stage 1: One-Child Node (30) - 20 is gone, 30 now has only right child 40
-        lvl23.deleteKey = 30;
+        // Stage 2: One-Child Node (60) - has right child 65
+        lvl23.deleteKey = 60;
         lvl23.expectedCase = 1; // One Child
         lvl23.expectedSuccessor = -1;
-        lvl23.currentNodeKey = 50;
-        strncpy(lvl23.phase, "search", sizeof(lvl23.phase));
+        lvl23.currentNodeKey = 60;
+        strncpy(lvl23.phase, "case_select", sizeof(lvl23.phase));
         snprintf(lvl23.statusMsg, sizeof(lvl23.statusMsg),
-                 "STAGE 2/3 (Case 2: One Child): Locate pod %d. Notice it now has only 1 child (40).",
+                 "STAGE 2/3 (One Child): Fresh tree loaded. Target is pod %d (has right child 65). Select deletion case.",
                  lvl23.deleteKey);
     } else if (stageNum == 2) {
-        // Stage 2: Two-Child Node (50) - Root 50 has left child 40 and right child 70
+        // Stage 3: Two-Child Node (50) - Root has left child 30 and right child 70
         lvl23.deleteKey = 50;
         lvl23.expectedCase = 2; // Two Children
         lvl23.expectedSuccessor = 60; // Minimum of right subtree
         lvl23.currentNodeKey = 50;
         strncpy(lvl23.phase, "case_select", sizeof(lvl23.phase));
         snprintf(lvl23.statusMsg, sizeof(lvl23.statusMsg),
-                 "STAGE 3/3 (Case 3: Two Children): Target is root %d. Select case, then choose its Inorder Successor.",
+                 "STAGE 3/3 (Two Children): Fresh tree loaded. Target is root %d (has 2 children). Select deletion case.",
                  lvl23.deleteKey);
     }
 }
 
 bool Act2Controller::handleLevel23SearchClick(int clickedKey, ScoreSystem& score, char* feedback, int maxLen) {
-    if (strcmp(lvl23.phase, "search") != 0) return false;
-
-    if (clickedKey == lvl23.currentNodeKey) {
-        score.addAlarmStep(1);
-        if (clickedKey == lvl23.deleteKey) {
-            strncpy(lvl23.phase, "case_select", sizeof(lvl23.phase));
-            if (feedback && maxLen > 0) {
-                snprintf(feedback, maxLen, "Target pod %d reached! Identify which deletion case applies below.", clickedKey);
-            }
-            return true;
-        }
-
-        BSTNode* cur = currentBST ? currentBST->getRoot() : nullptr;
-        while (cur != nullptr && cur->key != clickedKey) {
-            if (clickedKey < cur->key) cur = cur->left;
-            else cur = cur->right;
-        }
-        if (cur == nullptr) return false;
-
-        if (lvl23.deleteKey < cur->key && cur->left) {
-            lvl23.currentNodeKey = cur->left->key;
-            if (feedback && maxLen > 0) {
-                snprintf(feedback, maxLen, "%d < %d -> Follow LEFT branch to pod %d.",
-                         lvl23.deleteKey, cur->key, cur->left->key);
-            }
-        } else if (lvl23.deleteKey > cur->key && cur->right) {
-            lvl23.currentNodeKey = cur->right->key;
-            if (feedback && maxLen > 0) {
-                snprintf(feedback, maxLen, "%d > %d -> Follow RIGHT branch to pod %d.",
-                         lvl23.deleteKey, cur->key, cur->right->key);
-            }
+    // In Level 2.3, target is highlighted directly. Clicking target confirms inspection.
+    if (clickedKey == lvl23.deleteKey) {
+        if (feedback && maxLen > 0) {
+            snprintf(feedback, maxLen, "Target pod %d selected! Identify which deletion case applies below.", clickedKey);
         }
         return true;
+    } else if (strcmp(lvl23.phase, "successor_select") == 0 && clickedKey == lvl23.expectedSuccessor) {
+        return handleLevel23SuccessorClick(clickedKey, score, feedback, maxLen);
     } else {
-        score.addPenalty(0, 1);
         if (feedback && maxLen > 0) {
-            snprintf(feedback, maxLen, "Follow BST comparisons from current pod %d.", lvl23.currentNodeKey);
+            snprintf(feedback, maxLen, "Inspect highlighted target pod %d.", lvl23.deleteKey);
         }
         return false;
     }
@@ -379,39 +355,46 @@ bool Act2Controller::selectDeletionCase(int caseChoice, char* feedback, int maxL
 
     lvl23.selectedCase = caseChoice;
     if (caseChoice == lvl23.expectedCase) {
-        if (caseChoice == 2) {
-            // Two-child case: next is successor selection
-            strncpy(lvl23.phase, "successor_select", sizeof(lvl23.phase));
+        if (caseChoice == 0) {
+            // Leaf deletion (Stage 1: node 20)
+            strncpy(lvl23.phase, "stage_cleared", sizeof(lvl23.phase));
             if (feedback && maxLen > 0) {
-                snprintf(feedback, maxLen, "Correct: Case 3 (Two Children). Right subtree highlighted! Click Inorder Successor (%d).",
-                         lvl23.expectedSuccessor);
-            }
-        } else if (caseChoice == 0) {
-            // Leaf deletion (Stage 0): caller will animate unlink and advance
-            strncpy(lvl23.phase, "animating", sizeof(lvl23.phase));
-            if (feedback && maxLen > 0) {
-                snprintf(feedback, maxLen, "Correct: Case 1 (Leaf)! Pod %d has 0 children. Watching unlink animation...", lvl23.deleteKey);
+                snprintf(feedback, maxLen, "CORRECT: Case 1 (Leaf Node)! Pod %d has zero children. Click 'Continue to Stage 2'.", lvl23.deleteKey);
             }
         } else if (caseChoice == 1) {
-            // One-child deletion (Stage 1): caller will animate promotion and advance
-            strncpy(lvl23.phase, "animating", sizeof(lvl23.phase));
+            // One-child deletion (Stage 2: node 60)
+            strncpy(lvl23.phase, "stage_cleared", sizeof(lvl23.phase));
             if (feedback && maxLen > 0) {
-                snprintf(feedback, maxLen, "Correct: Case 2 (One Child)! Pod %d replaced by its child. Watching promotion animation...", lvl23.deleteKey);
+                snprintf(feedback, maxLen, "CORRECT: Case 2 (One Child)! Pod %d has 1 child (65). Child promoted. Click 'Continue to Stage 3'.", lvl23.deleteKey);
+            }
+        } else if (caseChoice == 2) {
+            // Two-child case (Stage 3: node 50)
+            strncpy(lvl23.phase, "successor_select", sizeof(lvl23.phase));
+            if (feedback && maxLen > 0) {
+                snprintf(feedback, maxLen, "CORRECT: Case 3 (Two Children)! Right subtree highlighted. Click Inorder Successor (%d).",
+                         lvl23.expectedSuccessor);
             }
         }
         return true;
     } else {
-        // Per section 5.3 & 8.3: No alarm penalty for wrong case selection
+        // Per specification: A wrong case selection must not modify the BST and has no alarm penalty
         if (feedback && maxLen > 0) {
             if (lvl23.expectedCase == 0) {
-                snprintf(feedback, maxLen, "Incorrect: Target pod %d has 0 children (Leaf). Try again.", lvl23.deleteKey);
+                snprintf(feedback, maxLen, "Incorrect: Target pod %d has 0 children (Leaf Node). Try again.", lvl23.deleteKey);
             } else if (lvl23.expectedCase == 1) {
-                snprintf(feedback, maxLen, "Incorrect: Target pod %d has exactly 1 child (40). Try again.", lvl23.deleteKey);
+                snprintf(feedback, maxLen, "Incorrect: Target pod %d has exactly 1 child (65). Try again.", lvl23.deleteKey);
             } else if (lvl23.expectedCase == 2) {
-                snprintf(feedback, maxLen, "Incorrect: Target pod %d has 2 children (40 and 70). Try again.", lvl23.deleteKey);
+                snprintf(feedback, maxLen, "Incorrect: Target pod %d has 2 children (30 and 70). Try again.", lvl23.deleteKey);
             }
         }
         return false;
+    }
+}
+
+void Act2Controller::advanceLevel23Stage() {
+    if (lvl23.stage < 2) {
+        populateInitialBST(3);
+        initLevel23Stage(lvl23.stage + 1);
     }
 }
 
@@ -420,13 +403,14 @@ bool Act2Controller::handleLevel23SuccessorClick(int clickedKey, ScoreSystem& sc
 
     if (clickedKey == lvl23.expectedSuccessor) {
         score.addAlarmStep(1);
-        strncpy(lvl23.phase, "animating", sizeof(lvl23.phase));
+        strncpy(lvl23.phase, "complete", sizeof(lvl23.phase));
+        lvl23.isLevelComplete = true;
         if (feedback && maxLen > 0) {
-            snprintf(feedback, maxLen, "SUCCESS: Inorder successor %d identified! Watching value swap animation...", clickedKey);
+            snprintf(feedback, maxLen, "SUCCESS: Inorder successor %d identified! Swapped values and deleted successor. Level 2.3 Cleared!", clickedKey);
         }
         return true;
     } else {
-        // Per doc 8.3: No alarm penalty for incorrect successor selection
+        // Per spec: No alarm penalty for incorrect successor selection
         if (feedback && maxLen > 0) {
             snprintf(feedback, maxLen, "Not the inorder successor! The successor is the SMALLEST node in the right subtree (%d).",
                      lvl23.expectedSuccessor);
@@ -438,10 +422,54 @@ bool Act2Controller::handleLevel23SuccessorClick(int clickedKey, ScoreSystem& sc
 // ============================================================================
 // LEVEL 2.4: RANGE RAID
 // ============================================================================
+void Act2Controller::collectAllSubtreeKeys(BSTNode* node) {
+    if (node == nullptr) return;
+    if (lvl24.prunedNodeCount < 16) {
+        lvl24.prunedNodeKeys[lvl24.prunedNodeCount++] = node->key;
+    }
+    collectAllSubtreeKeys(node->left);
+    collectAllSubtreeKeys(node->right);
+}
+
 void Act2Controller::collectPrunedSubtree(BSTNode* node) {
     if (node == nullptr) return;
     if (lvl24.prunedCount < 16) {
         lvl24.prunedSubtreeRoots[lvl24.prunedCount++] = node->key;
+    }
+    collectAllSubtreeKeys(node);
+}
+
+void Act2Controller::rangeQueryRecursive(BSTNode* node, int lo, int hi) {
+    if (node == nullptr) return;
+
+    // Record examined node
+    if (lvl24.visitedCount < 32) {
+        lvl24.visitedKeys[lvl24.visitedCount++] = node->key;
+    }
+
+    // Left pruning rule: If node.key <= lo, entire left subtree is skipped
+    if (node->key > lo) {
+        rangeQueryRecursive(node->left, lo, hi);
+    } else {
+        if (node->left != nullptr) {
+            collectPrunedSubtree(node->left);
+        }
+    }
+
+    // Check inclusive range
+    if (node->key >= lo && node->key <= hi) {
+        if (lvl24.matchingCount < 32) {
+            lvl24.matchingKeys[lvl24.matchingCount++] = node->key;
+        }
+    }
+
+    // Right pruning rule: If node.key >= hi, entire right subtree is skipped
+    if (node->key < hi) {
+        rangeQueryRecursive(node->right, lo, hi);
+    } else {
+        if (node->right != nullptr) {
+            collectPrunedSubtree(node->right);
+        }
     }
 }
 
@@ -450,43 +478,36 @@ bool Act2Controller::executeRangeQuery(ScoreSystem& score, char* feedback, int m
 
     lvl24.matchingCount = 0;
     lvl24.prunedCount = 0;
+    lvl24.prunedNodeCount = 0;
+    lvl24.visitedCount = 0;
 
-    // Keys in range [30, 70] from {50, 20, 80, 10, 35, 65, 90, 5, 15, 30, 40}:
-    // Matching keys: 30, 35, 40, 50, 65
-    int matches[5] = {30, 35, 40, 50, 65};
-    lvl24.matchingCount = 5;
-    for (int i = 0; i < 5; i++) lvl24.matchingKeys[i] = matches[i];
+    // Run exact recursive algorithm with pruning
+    if (currentBST) {
+        rangeQueryRecursive(currentBST->getRoot(), lvl24.lo, lvl24.hi);
+    }
 
-    // Pruned roots: 10 (left child of 20) and 90 (right child of 80)
-    lvl24.prunedCount = 2;
-    lvl24.prunedSubtreeRoots[0] = 10;
-    lvl24.prunedSubtreeRoots[1] = 90;
-
-    lvl24.prunedNodeCount = 4;
-    lvl24.prunedNodeKeys[0] = 10;
-    lvl24.prunedNodeKeys[1] = 5;
-    lvl24.prunedNodeKeys[2] = 15;
-    lvl24.prunedNodeKeys[3] = 90;
-
-    // Pruning reward: +150 bonus points
+    // Reward pruning: +150 bonus points
     lvl24.pruningBonus = 150;
     score.bonuses += lvl24.pruningBonus;
 
-    score.addAlarmStep(5); // Optimal steps
+    // Each actually visited node costs 1 alarm step
+    score.addAlarmStep(lvl24.visitedCount);
+
     lvl24.isExecuted = true;
     lvl24.isLevelComplete = true;
 
     if (feedback && maxLen > 0) {
-        snprintf(feedback, maxLen, "RANGE QUERY EXECUTED: [%d, %d]. Found 5 pods. Pruned 2 subtrees (4 nodes skipped). +%d PRUNING BONUS!",
-                 lvl24.lo, lvl24.hi, lvl24.pruningBonus);
+        snprintf(feedback, maxLen, "RANGE RAID COMPLETED: Range [%d, %d]. Found %d treasures. Skipped %d subtrees (%d nodes). +%d BONUS!",
+                 lvl24.lo, lvl24.hi, lvl24.matchingCount, lvl24.prunedCount, lvl24.prunedNodeCount, lvl24.pruningBonus);
     }
     return true;
 }
 
 bool Act2Controller::isKeyPruned(int key) const {
     if (!lvl24.isExecuted) return false;
-    // Keys in pruned subtrees: subtree 10 (10, 5, 15) and subtree 90 (90)
-    if (key == 10 || key == 5 || key == 15 || key == 90) return true;
+    for (int i = 0; i < lvl24.prunedNodeCount; i++) {
+        if (lvl24.prunedNodeKeys[i] == key) return true;
+    }
     return false;
 }
 
@@ -494,6 +515,14 @@ bool Act2Controller::isKeyMatching(int key) const {
     if (!lvl24.isExecuted) return false;
     for (int i = 0; i < lvl24.matchingCount; i++) {
         if (lvl24.matchingKeys[i] == key) return true;
+    }
+    return false;
+}
+
+bool Act2Controller::isKeyVisited(int key) const {
+    if (!lvl24.isExecuted) return false;
+    for (int i = 0; i < lvl24.visitedCount; i++) {
+        if (lvl24.visitedKeys[i] == key) return true;
     }
     return false;
 }

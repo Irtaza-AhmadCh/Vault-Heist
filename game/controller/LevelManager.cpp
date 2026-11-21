@@ -50,14 +50,14 @@ void LevelManager::initLevels() {
                              "insert", 45, 4);
 
     levels[idx++] = LevelDef(2, 3, "Level 2.3: Steal and Collapse", "The Sorted Wing", "bst",
-                             "Delete leaf, one-child, and two-child nodes by identifying each case.",
-                             "For a two-child node, identify and swap with the inorder successor.",
-                             "delete", 0, 7);
+                             "Delete leaf (20), one-child (60), and two-child (50) nodes across 3 stages.",
+                             "Identify each deletion case. For two children, swap with inorder successor 60.",
+                             "delete", 0, 4);
 
     levels[idx++] = LevelDef(2, 4, "Level 2.4: Range Raid", "The Sorted Wing", "bst",
-                             "Execute Range Query [30, 70] and prune non-overlapping subtrees.",
-                             "Branches outside the range boundaries are bypassed.",
-                             "range", 0, 5);
+                             "Execute Range Query [30, 65] and prune non-overlapping subtrees.",
+                             "Branches outside the range boundaries are bypassed (20 and 80 pruned).",
+                             "range", 0, 6);
 
     levels[idx++] = LevelDef(2, 5, "Level 2.5: Boss: The Lazy Architect", "The Sorted Wing", "bst",
                              "Insert sorted sequence into BST and observe degeneration into a corridor.",

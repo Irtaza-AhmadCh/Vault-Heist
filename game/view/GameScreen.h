@@ -479,21 +479,31 @@ public:
                     // Level 2.2: No action buttons — slot clicks and node clicks drive it
                     // Show hint about what to do
                 } else if (lvlNum == 3) {
-                    // Level 2.3: Show case-select buttons in case_select phase
+                    // Level 2.3: Steal and Collapse
                     if (strcmp(act2.lvl23.phase, "case_select") == 0) {
-                        buttons[buttonCount++] = BioButton(x1, row1Y, 60.0f, btnH, "Leaf", 71);
-                        x1 += 60.0f + gap;
-                        buttons[buttonCount++] = BioButton(x1, row1Y, 100.0f, btnH, "One Child", 72);
+                        buttons[buttonCount++] = BioButton(x1, row1Y, 100.0f, btnH, "Leaf Node", 71, true);
                         x1 += 100.0f + gap;
-                        buttons[buttonCount++] = BioButton(x1, row1Y, 120.0f, btnH, "Two Children", 73);
+                        buttons[buttonCount++] = BioButton(x1, row1Y, 100.0f, btnH, "One Child", 72, true);
+                        x1 += 100.0f + gap;
+                        buttons[buttonCount++] = BioButton(x1, row1Y, 120.0f, btnH, "Two Children", 73, true);
                         x1 += 120.0f + gap;
+                    } else if (strcmp(act2.lvl23.phase, "stage_cleared") == 0) {
+                        if (act2.lvl23.stage == 0) {
+                            buttons[buttonCount++] = BioButton(x1, row1Y, 170.0f, btnH, "Continue to Stage 2", 77, true);
+                            x1 += 170.0f + gap;
+                        } else if (act2.lvl23.stage == 1) {
+                            buttons[buttonCount++] = BioButton(x1, row1Y, 170.0f, btnH, "Continue to Stage 3", 77, true);
+                            x1 += 170.0f + gap;
+                        }
+                    } else if (strcmp(act2.lvl23.phase, "successor_select") == 0) {
+                        buttons[buttonCount++] = BioButton(x1, row1Y, 180.0f, btnH, "Confirm Successor (60)", 78, true);
+                        x1 += 180.0f + gap;
                     }
-                    // In successor_select phase: instruction only, clicking nodes drives it
                 } else if (lvlNum == 4) {
                     // Level 2.4: Show Scan Range button if not yet executed
                     if (!act2.lvl24.isExecuted) {
-                        buttons[buttonCount++] = BioButton(x1, row1Y, 120.0f, btnH, "Scan Range", 74, true);
-                        x1 += 120.0f + gap;
+                        buttons[buttonCount++] = BioButton(x1, row1Y, 150.0f, btnH, "Start Raid [30, 65]", 74, true);
+                        x1 += 150.0f + gap;
                     }
                 } else if (lvlNum == 5) {
                     // Level 2.5: Show stage-appropriate buttons
@@ -1039,11 +1049,11 @@ public:
                 layout.nodes[rootIdx].setState("highlighted");
             }
         } else if (lvlNum == 3) {
-            // Level 2.3: All nodes normal; root is starting point
+            // Level 2.3: Highlight target node to be deleted
             resetAllVisualStates();
-            int rootIdx = layout.findRootIndex();
-            if (rootIdx != -1) {
-                layout.nodes[rootIdx].setState("highlighted");
+            int targetIdx = findVisualNodeByKey(act2.lvl23.deleteKey);
+            if (targetIdx != -1) {
+                layout.nodes[targetIdx].setState("target");
             }
         } else if (lvlNum == 4) {
             // Level 2.4: All nodes normal before range query
@@ -2298,43 +2308,40 @@ public:
                     hud.setStatus(fb, "BST Deletion Case Selection");
                     if (ok) {
                         if (caseChoice == 0) {
-                            // Stage 0: Leaf deletion animation
+                            // Stage 1: Leaf deletion (20)
                             eventLog.clear();
                             int vIdx = findVisualNodeByKey(delKey);
                             if (vIdx != -1) eventLog.logUnlink(vIdx, -1, 0, delKey);
-                            eventLog.logDone("Case 1 (Leaf): Unlinked leaf pod");
+                            eventLog.logDone("Stage 1 (Leaf): Node 20 unlinked and removed");
                             eventController.loadFromEventLog(eventLog);
                             eventController.start();
 
                             if (bst.search(delKey)) bst.deleteNode(delKey);
                             syncBSTVisuals();
-                            applyAct2InitialVisuals(3);
                             setupButtons();
                         } else if (caseChoice == 1) {
-                            // Stage 1: One-child deletion animation
+                            // Stage 2: One-child deletion (60)
                             eventLog.clear();
                             int vIdx = findVisualNodeByKey(delKey);
+                            int cIdx = findVisualNodeByKey(65);
                             if (vIdx != -1) eventLog.logUnlink(vIdx, -1, 0, delKey);
-                            eventLog.logDone("Case 2 (One Child): Child promoted");
+                            if (cIdx != -1) eventLog.logVisit(cIdx, 65);
+                            eventLog.logDone("Stage 2 (One Child): Node 60 deleted, child 65 promoted to 70");
                             eventController.loadFromEventLog(eventLog);
                             eventController.start();
 
                             if (bst.search(delKey)) bst.deleteNode(delKey);
                             syncBSTVisuals();
-                            applyAct2InitialVisuals(3);
                             setupButtons();
                         } else if (caseChoice == 2) {
-                            // Stage 2: Two-child case -> highlight right subtree
+                            // Stage 3: Two-child case (50) -> highlight target 50 and successor 60
                             int targetIdx = findVisualNodeByKey(delKey);
                             if (targetIdx != -1) {
                                 layout.nodes[targetIdx].setState("target");
                             }
-                            // Highlight right subtree (70, 60, 85)
-                            for (int i = 0; i < layout.nodeCount; i++) {
-                                if (!layout.nodes[i].active) continue;
-                                if (layout.nodes[i].key == 70 || layout.nodes[i].key == 60 || layout.nodes[i].key == 85) {
-                                    layout.nodes[i].setState("searching");
-                                }
+                            int succIdx = findVisualNodeByKey(60);
+                            if (succIdx != -1) {
+                                layout.nodes[succIdx].setState("highlighted");
                             }
                             setupButtons();
                         }
@@ -2343,36 +2350,74 @@ public:
                 break;
             }
 
-            case 74: // Level 2.4: Scan Range
+            case 77: // Level 2.3: Continue to next stage
+            {
+                if (isScreen("level_play") && isAct("act_2") && strcmp(act2.lvl23.phase, "stage_cleared") == 0) {
+                    act2.advanceLevel23Stage();
+                    syncBSTVisuals();
+                    applyAct2InitialVisuals(3);
+                    setupButtons();
+                    hud.setStatus(act2.lvl23.statusMsg, "BST Deletion");
+                }
+                break;
+            }
+
+            case 78: // Level 2.3: Confirm Successor (60) for Two Children
+            {
+                if (isScreen("level_play") && isAct("act_2") && strcmp(act2.lvl23.phase, "successor_select") == 0) {
+                    char fb[160] = {0};
+                    bool ok = act2.handleLevel23SuccessorClick(60, levelManager.scoreSystem, fb, sizeof(fb));
+                    hud.setStatus(fb, "Inorder Successor Swap");
+                    if (ok) {
+                        eventLog.clear();
+                        int n50 = findVisualNodeByKey(50);
+                        int n60 = findVisualNodeByKey(60);
+                        if (n50 != -1 && n60 != -1) {
+                            eventLog.logSwapValue(n50, n60, 50, 60);
+                            eventLog.logUnlink(n60, -1, 0, 50);
+                        }
+                        eventLog.logDone("Stage 3: Successor 60 swapped with root 50, original successor deleted");
+                        eventController.loadFromEventLog(eventLog);
+                        eventController.start();
+
+                        if (bst.search(50)) bst.deleteNode(50);
+                        syncBSTVisuals();
+                        levelManager.notifyAction("delete", 0);
+                        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                        setupButtons();
+                    }
+                }
+                break;
+            }
+
+            case 74: // Level 2.4: Start Raid [30, 65]
             {
                 if (isScreen("level_play") && isAct("act_2") && !act2.lvl24.isExecuted) {
                     char fb[160] = {0};
                     bool ok = act2.executeRangeQuery(levelManager.scoreSystem, fb, sizeof(fb));
-                    hud.setStatus(fb, "BST Range Query [30, 70]");
+                    hud.setStatus(fb, "BST Range Raid [30, 65]");
                     if (ok) {
                         eventLog.clear();
                         int n50 = findVisualNodeByKey(50);
-                        int n20 = findVisualNodeByKey(20);
-                        int n10 = findVisualNodeByKey(10);
-                        int n35 = findVisualNodeByKey(35);
                         int n30 = findVisualNodeByKey(30);
+                        int n20 = findVisualNodeByKey(20);
                         int n40 = findVisualNodeByKey(40);
-                        int n80 = findVisualNodeByKey(80);
-                        int n90 = findVisualNodeByKey(90);
+                        int n70 = findVisualNodeByKey(70);
+                        int n60 = findVisualNodeByKey(60);
                         int n65 = findVisualNodeByKey(65);
+                        int n80 = findVisualNodeByKey(80);
 
-                        eventLog.logCompare(n50, -1, 50, 30);
                         eventLog.logVisit(n50, 50);
-                        eventLog.logCompare(n20, -1, 20, 30);
-                        eventLog.logHighlightSubtree(n10, "pruned_left");
-                        eventLog.logCompare(n35, -1, 35, 30);
-                        eventLog.logVisit(n35, 35);
+                        eventLog.logCompare(n30, -1, 30, 30);
+                        eventLog.logHighlightSubtree(n20, "pruned_left");
                         eventLog.logVisit(n30, 30);
                         eventLog.logVisit(n40, 40);
-                        eventLog.logCompare(n80, -1, 80, 70);
-                        eventLog.logHighlightSubtree(n90, "pruned_right");
+                        eventLog.logCompare(n70, -1, 70, 65);
+                        eventLog.logVisit(n70, 70);
+                        eventLog.logVisit(n60, 60);
                         eventLog.logVisit(n65, 65);
-                        eventLog.logDone("Range query with pruning complete");
+                        eventLog.logHighlightSubtree(n80, "pruned_right");
+                        eventLog.logDone("Range Raid [30, 65] with subtree pruning complete");
 
                         eventController.loadFromEventLog(eventLog);
                         eventController.start();
@@ -3159,55 +3204,23 @@ public:
 
                             } else if (lvlNum == 3) {
                                 // Level 2.3: Steal and Collapse
-                                if (strcmp(act2.lvl23.phase, "search") == 0) {
-                                    bool ok = act2.handleLevel23SearchClick(val, levelManager.scoreSystem, fb, sizeof(fb));
-                                    if (ok) {
-                                        layout.nodes[clickedNode].setState("highlighted");
-                                        if (strcmp(act2.lvl23.phase, "case_select") == 0) {
-                                            // Found target — highlight it as target
-                                            layout.nodes[clickedNode].setState("target");
-                                            setupButtons(); // show case selection buttons
-                                        } else {
-                                            // Advanced to next node
-                                            int nextIdx = findVisualNodeByKey(act2.lvl23.currentNodeKey);
-                                            if (nextIdx != -1) layout.nodes[nextIdx].setState("searching");
-                                        }
+                                if (strcmp(act2.lvl23.phase, "case_select") == 0) {
+                                    if (val == act2.lvl23.deleteKey) {
+                                        layout.nodes[clickedNode].setState("target");
+                                        hud.setStatus("Target pod selected! Select deletion case: Leaf Node, One Child, Two Children.", "BST Deletion");
                                     } else {
-                                        layout.nodes[clickedNode].setState("inactive");
-                                        if (levelManager.scoreSystem.isAlarmBreached()) {
-                                            levelManager.notifyAction("fail", 0);
-                                            setupButtons();
-                                        }
+                                        hud.setStatus("Target pod is highlighted in red. Select its deletion case below.", "BST Deletion");
                                     }
-                                    hud.setStatus(fb, "BST Delete: Find target node");
                                 } else if (strcmp(act2.lvl23.phase, "successor_select") == 0) {
-                                    // Clicking the inorder successor
-                                    int delKey = act2.lvl23.deleteKey;
-                                    bool ok = act2.handleLevel23SuccessorClick(val, levelManager.scoreSystem, fb, sizeof(fb));
-                                    if (ok) {
-                                        // Play value swap and unlink animation!
-                                        eventLog.clear();
-                                        int idxTarget = findVisualNodeByKey(delKey);
-                                        int idxSucc = findVisualNodeByKey(val);
-                                        if (idxTarget != -1 && idxSucc != -1) {
-                                            eventLog.logSwapValue(idxTarget, idxSucc, delKey, val);
-                                            eventLog.logUnlink(idxSucc, -1, 0, delKey);
-                                        }
-                                        eventLog.logDone("Case 3: Inorder successor swapped and node deleted");
-                                        eventController.loadFromEventLog(eventLog);
-                                        eventController.start();
-
-                                        if (bst.search(delKey)) bst.deleteNode(delKey);
-                                        syncBSTVisuals();
-                                        levelManager.notifyAction("delete", 0);
-                                        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
-                                        setupButtons();
+                                    // Clicking the inorder successor 60
+                                    if (val == act2.lvl23.expectedSuccessor) {
+                                        handleButtonClick(78); // Confirm Successor
                                     } else {
                                         layout.nodes[clickedNode].setState("inactive");
+                                        hud.setStatus("Not the inorder successor! The successor is the smallest node in the right subtree (60).", "BST Deletion");
                                     }
-                                    hud.setStatus(fb, "Select Inorder Successor");
                                 } else if (strcmp(act2.lvl23.phase, "complete") == 0) {
-                                    hud.setStatus("Deletion complete! Level cleared.", "");
+                                    hud.setStatus("All 3 deletion cases completed! Level cleared.", "BST Deletion Complete");
                                 }
 
                             } else if (lvlNum == 5) {
@@ -3840,6 +3853,51 @@ public:
         }
 
         window.setView(defaultView);
+
+        if (isScreen("level_play") && isAct("act_2")) {
+            int lvlNum = levelManager.getCurrentLevel() ? levelManager.getCurrentLevel()->levelNumber : 1;
+            if (lvlNum == 4 && act2.lvl24.isExecuted) {
+                // Section 6: Range Raid Result Panel
+                float px = 970.0f;
+                float py = 150.0f;
+                float pw = 280.0f;
+                float ph = 265.0f;
+
+                sf::RectangleShape panelBg(sf::Vector2f(pw, ph));
+                panelBg.setPosition(px, py);
+                panelBg.setFillColor(sf::Color(15, 18, 28, 240));
+                panelBg.setOutlineColor(sf::Color(64, 224, 208, 220));
+                panelBg.setOutlineThickness(2.0f);
+                window.draw(panelBg);
+
+                sf::Text pTitle;
+                pTitle.setFont(renderer.font);
+                pTitle.setString("RANGE RAID RESULTS");
+                pTitle.setCharacterSize(16);
+                pTitle.setStyle(sf::Text::Bold);
+                pTitle.setFillColor(sf::Color(255, 215, 0));
+                pTitle.setPosition(px + 14.0f, py + 12.0f);
+                window.draw(pTitle);
+
+                char rBuf[256];
+                snprintf(rBuf, sizeof(rBuf),
+                    "Requested Range: [30, 65]\n\n"
+                    "Matching Treasures:\n"
+                    "  30, 40, 50, 60, 65\n\n"
+                    "Total Treasures Found: %d\n"
+                    "Pruned: 2 Subtrees (20, 80)\n"
+                    "Status: Raid Completed\n"
+                    "+150 Pruning Bonus!",
+                    act2.lvl24.matchingCount);
+                sf::Text pBody;
+                pBody.setFont(renderer.font);
+                pBody.setString(rBuf);
+                pBody.setCharacterSize(13);
+                pBody.setFillColor(sf::Color(220, 230, 240));
+                pBody.setPosition(px + 14.0f, py + 42.0f);
+                window.draw(pBody);
+            }
+        }
 
         if (isAct("act_4")) {
             renderer.renderHeapArray(window, heap.getArray(), heap.getSize(), selectedNodeIndex, layout);

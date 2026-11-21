@@ -20,7 +20,21 @@
 
 ## 2. Acts Status
 - **Act 1 (Blueprint Wing - Binary Tree):** ✅ Completed & Verified.
-- **Act 2 (Sorted Wing - BST):** ✅ Completed & Verified (Levels 2.1 to 2.5).
+- **Act 2 (Sorted Wing - BST):** ✅ **FULLY COMPLETED & VERIFIED (Levels 2.1 to 2.5)**
+  - **Level 2.3: Steal and Collapse (BST Deletion):**
+    - 3 distinct stages, each starting with a fresh reconstructed BST from `[50, 30, 70, 20, 40, 60, 80, 65]`.
+    - Stage 1: Leaf node (delete 20) with case identification ("Leaf Node").
+    - Stage 2: One child (delete 60, right child 65 promoted to 70) with case identification ("One Child").
+    - Stage 3: Two children (delete root 50, identify inorder successor 60 in right subtree, swap values, delete successor using one-child procedure).
+    - Wrong case selections do not modify tree and carry no alarm penalty. Button "Continue to Stage 2/3" advances with tree reset.
+  - **Level 2.4: Range Raid (BST Range Query):**
+    - Tree generated using `[50, 30, 70, 20, 40, 60, 80, 65]`.
+    - Inclusive range `[30, 65]` executed recursively via `rangeQueryRecursive`.
+    - Left pruning rule: `node.key <= lo` skips left subtree (subtree at 20 skipped at 0 alarm).
+    - Right pruning rule: `node.key >= hi` skips right subtree (subtree at 80 skipped at 0 alarm).
+    - 6 visited nodes (50, 30, 40, 70, 60, 65) cost 6 alarm steps; results `[30, 40, 50, 60, 65]` (5 found); +150 pruning bonus awarded.
+    - Dedicated on-screen Result Panel rendered showing matches, range, status, and pruned subtrees.
+  - Full test suite: `tests/test_act2_levels23_24.cpp` — ALL PASSED.
 - **Act 3 (Architect's Wing - AVL Tree):** ✅ **FULLY IMPLEMENTED & BUILDS CLEAN**
   - Specification source: `act3-plan.md`.
   - `game/logic/avl/avl_tree.cpp` — Added: `findNode`, `insertRaw`, `manualRotateLeft`, `manualRotateRight`, `manualRotateLR`, `manualRotateRL`, `predictRotationOnInsert`.
