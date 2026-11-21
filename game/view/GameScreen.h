@@ -64,6 +64,14 @@ public:
     int buttonCount;
 
     int selectedNodeIndex;
+    bool isDraggingAVLNode;
+    int draggedAVLNodeIndex;
+    int draggedAVLNodeKey;
+    int draggedAVLLevelNumber;
+    float avlDragStartX;
+    bool isAct3StageTransitionPending;
+    int pendingAct3StageLevel;
+    float act3StageTransitionTimer;
 
     // Camera view panning & zoom
     sf::View cameraView;
@@ -82,6 +90,14 @@ public:
         campaignSelectedAct = 1;
         buttonCount = 0;
         selectedNodeIndex = -1;
+        isDraggingAVLNode = false;
+        draggedAVLNodeIndex = -1;
+        draggedAVLNodeKey = -1;
+        draggedAVLLevelNumber = 0;
+        avlDragStartX = 0.0f;
+        isAct3StageTransitionPending = false;
+        pendingAct3StageLevel = 0;
+        act3StageTransitionTimer = 0.0f;
         endlessTimer = 0.0f;
         endlessWave = 1;
 
@@ -479,21 +495,31 @@ public:
                     // Level 2.2: No action buttons — slot clicks and node clicks drive it
                     // Show hint about what to do
                 } else if (lvlNum == 3) {
-                    // Level 2.3: Show case-select buttons in case_select phase
+                    // Level 2.3: Steal and Collapse
                     if (strcmp(act2.lvl23.phase, "case_select") == 0) {
-                        buttons[buttonCount++] = BioButton(x1, row1Y, 60.0f, btnH, "Leaf", 71);
-                        x1 += 60.0f + gap;
-                        buttons[buttonCount++] = BioButton(x1, row1Y, 100.0f, btnH, "One Child", 72);
+                        buttons[buttonCount++] = BioButton(x1, row1Y, 100.0f, btnH, "Leaf Node", 71, true);
                         x1 += 100.0f + gap;
-                        buttons[buttonCount++] = BioButton(x1, row1Y, 120.0f, btnH, "Two Children", 73);
+                        buttons[buttonCount++] = BioButton(x1, row1Y, 100.0f, btnH, "One Child", 72, true);
+                        x1 += 100.0f + gap;
+                        buttons[buttonCount++] = BioButton(x1, row1Y, 120.0f, btnH, "Two Children", 73, true);
                         x1 += 120.0f + gap;
+                    } else if (strcmp(act2.lvl23.phase, "stage_cleared") == 0) {
+                        if (act2.lvl23.stage == 0) {
+                            buttons[buttonCount++] = BioButton(x1, row1Y, 170.0f, btnH, "Continue to Stage 2", 77, true);
+                            x1 += 170.0f + gap;
+                        } else if (act2.lvl23.stage == 1) {
+                            buttons[buttonCount++] = BioButton(x1, row1Y, 170.0f, btnH, "Continue to Stage 3", 77, true);
+                            x1 += 170.0f + gap;
+                        }
+                    } else if (strcmp(act2.lvl23.phase, "successor_select") == 0) {
+                        buttons[buttonCount++] = BioButton(x1, row1Y, 180.0f, btnH, "Confirm Successor (60)", 78, true);
+                        x1 += 180.0f + gap;
                     }
-                    // In successor_select phase: instruction only, clicking nodes drives it
                 } else if (lvlNum == 4) {
                     // Level 2.4: Show Scan Range button if not yet executed
                     if (!act2.lvl24.isExecuted) {
-                        buttons[buttonCount++] = BioButton(x1, row1Y, 120.0f, btnH, "Scan Range", 74, true);
-                        x1 += 120.0f + gap;
+                        buttons[buttonCount++] = BioButton(x1, row1Y, 150.0f, btnH, "Start Raid [30, 65]", 74, true);
+                        x1 += 150.0f + gap;
                     }
                 } else if (lvlNum == 5) {
                     // Level 2.5: Show stage-appropriate buttons
@@ -513,8 +539,10 @@ public:
                             buttons[buttonCount++] = BioButton(x1, row1Y, 140.0f, btnH, lbl, 76);
                             x1 += 140.0f + gap;
                         }
+                    } else if (act2.lvl25.stage >= 2) {
+                        buttons[buttonCount++] = BioButton(x1, row1Y, 160.0f, btnH, "Advance to Act 3 >", 203, true);
+                        x1 += 160.0f + gap;
                     }
-                    // Stage 2 (C) or 3 (complete): no extra buttons
                 }
             } else {
                 // Sandbox mode: generic BST buttons
@@ -533,31 +561,9 @@ public:
                 if (lvlNum == 1) {
                     // Level 3.1: direct node clicks, no special buttons needed
                 } else if (lvlNum == 2) {
-                    // Level 3.2: Stage-dependent rotation buttons
-                    if (act3.lvl32.stage == 0) {
-                        buttons[buttonCount++] = BioButton(x1, row1Y, 130.0f, btnH, "Rotate Right (LL)", 80, true);
-                        x1 += 130.0f + gap;
-                        buttons[buttonCount++] = BioButton(x1, row1Y, 120.0f, btnH, "Rotate Left (RR)", 81);
-                        x1 += 120.0f + gap;
-                    } else if (act3.lvl32.stage == 1) {
-                        buttons[buttonCount++] = BioButton(x1, row1Y, 130.0f, btnH, "Rotate Right (LL)", 80);
-                        x1 += 130.0f + gap;
-                        buttons[buttonCount++] = BioButton(x1, row1Y, 120.0f, btnH, "Rotate Left (RR)", 81, true);
-                        x1 += 120.0f + gap;
-                    }
+                    // Level 3.2 rotations are performed by dragging the unbalanced pivot.
                 } else if (lvlNum == 3) {
-                    // Level 3.3: Stage-dependent double rotation buttons
-                    if (act3.lvl33.stage == 0) {
-                        buttons[buttonCount++] = BioButton(x1, row1Y, 140.0f, btnH, "LR Double Rotation", 82, true);
-                        x1 += 140.0f + gap;
-                        buttons[buttonCount++] = BioButton(x1, row1Y, 140.0f, btnH, "RL Double Rotation", 83);
-                        x1 += 140.0f + gap;
-                    } else if (act3.lvl33.stage == 1) {
-                        buttons[buttonCount++] = BioButton(x1, row1Y, 140.0f, btnH, "LR Double Rotation", 82);
-                        x1 += 140.0f + gap;
-                        buttons[buttonCount++] = BioButton(x1, row1Y, 140.0f, btnH, "RL Double Rotation", 83, true);
-                        x1 += 140.0f + gap;
-                    }
+                    // Level 3.3 double rotations are performed by dragging the unbalanced pivot.
                 } else if (lvlNum == 4) {
                     // Level 3.4: Prediction buttons (show for each insertion)
                     if (!act3.lvl34.isLevelComplete && act3.lvl34.currentIdx < act3.lvl34.totalCount) {
@@ -573,11 +579,8 @@ public:
                         x1 += 60.0f + gap;
                     }
                 } else if (lvlNum == 5) {
-                    // Level 3.5: Phase A repair or Phase B search/claim
-                    if (act3.lvl35.phase == 0) {
-                        buttons[buttonCount++] = BioButton(x1, row1Y, 120.0f, btnH, "Rotate Left (RR)", 81, true);
-                        x1 += 120.0f + gap;
-                    } else if (act3.lvl35.phase == 1 && act3.lvl35.targetFound) {
+                    // Level 3.5: drag for Phase A repair; keep the claim action in Phase B.
+                    if (act3.lvl35.phase == 1 && act3.lvl35.targetFound) {
                         buttons[buttonCount++] = BioButton(x1, row1Y, 140.0f, btnH, "Claim Treasure!", 89, true);
                         x1 += 140.0f + gap;
                     }
@@ -948,7 +951,11 @@ public:
     void syncBSTVisuals() {
         layout.clear();
         mapBSTNodeToVisual(bst.getRoot());
-        layout.updateLayout(1280.0f, true);
+        if (isScreen("level_play") && isAct("act_2") && levelManager.getCurrentLevel() && levelManager.getCurrentLevel()->levelNumber == 2) {
+            computeAct2EmptySlots();
+        } else {
+            layout.updateLayout(1280.0f, true);
+        }
         selectedNodeIndex = -1;
     }
 
@@ -977,6 +984,35 @@ public:
         layout.clear();
         mapAVLNodeToVisual(avl.getRoot());
         layout.updateLayout(1280.0f, true);
+        selectedNodeIndex = -1;
+    }
+
+    void syncAVLVisualsAnimated() {
+        int previousKeys[TreeLayoutEngine::MAX_NODES];
+        float previousX[TreeLayoutEngine::MAX_NODES];
+        float previousY[TreeLayoutEngine::MAX_NODES];
+        int previousCount = 0;
+        for (int i = 0; i < layout.nodeCount && previousCount < TreeLayoutEngine::MAX_NODES; i++) {
+            if (!layout.nodes[i].active) continue;
+            previousKeys[previousCount] = layout.nodes[i].key;
+            previousX[previousCount] = layout.nodes[i].x;
+            previousY[previousCount] = layout.nodes[i].y;
+            previousCount++;
+        }
+
+        layout.clear();
+        mapAVLNodeToVisual(avl.getRoot());
+        for (int i = 0; i < layout.nodeCount; i++) {
+            if (!layout.nodes[i].active) continue;
+            for (int j = 0; j < previousCount; j++) {
+                if (layout.nodes[i].key == previousKeys[j]) {
+                    layout.nodes[i].x = previousX[j];
+                    layout.nodes[i].y = previousY[j];
+                    break;
+                }
+            }
+        }
+        layout.updateLayout(1280.0f, false);
         selectedNodeIndex = -1;
     }
 
@@ -1039,11 +1075,11 @@ public:
                 layout.nodes[rootIdx].setState("highlighted");
             }
         } else if (lvlNum == 3) {
-            // Level 2.3: All nodes normal; root is starting point
+            // Level 2.3: Highlight target node to be deleted
             resetAllVisualStates();
-            int rootIdx = layout.findRootIndex();
-            if (rootIdx != -1) {
-                layout.nodes[rootIdx].setState("highlighted");
+            int targetIdx = findVisualNodeByKey(act2.lvl23.deleteKey);
+            if (targetIdx != -1) {
+                layout.nodes[targetIdx].setState("target");
             }
         } else if (lvlNum == 4) {
             // Level 2.4: All nodes normal before range query
@@ -1224,66 +1260,40 @@ public:
         return -1;
     }
 
-    // Compute empty slots for Level 2.2 from BST NULL children using current layout positions
+    // Compute empty slots for Level 2.2 from BST NULL children using dynamic tree layout
     void computeAct2EmptySlots() {
         act2.lvl22.slotCount = 0;
-        computeAct2EmptySlotsRecurse(bst.getRoot());
-        // Mark which slot is the target insertion slot for the insert key
-        int insertKey = act2.lvl22.insertKey;
-        for (int i = 0; i < act2.lvl22.slotCount; i++) {
-            act2.lvl22.slots[i].isTarget = false;
-        }
-        // Determine correct slot: traverse BST to find where insertKey would go
-        BSTNode* cur = bst.getRoot();
-        int parentKey = -1;
-        bool goLeft = false;
-        while (cur != nullptr) {
-            if (insertKey < cur->key) {
-                if (cur->left == nullptr) { parentKey = cur->key; goLeft = true; break; }
-                cur = cur->left;
-            } else if (insertKey > cur->key) {
-                if (cur->right == nullptr) { parentKey = cur->key; goLeft = false; break; }
-                cur = cur->right;
-            } else {
-                break; // duplicate
-            }
-        }
-        if (parentKey != -1) {
+        layout.updateLayoutWithNullSlots(1280.0f, act2.lvl22.slots, act2.lvl22.slotCount, 16, true);
+
+        // Mark which slot is the target insertion slot for the insert key (only if level not complete)
+        if (!act2.lvl22.isLevelComplete) {
+            int insertKey = act2.lvl22.insertKey;
             for (int i = 0; i < act2.lvl22.slotCount; i++) {
-                if (act2.lvl22.slots[i].parentKey == parentKey && act2.lvl22.slots[i].isLeft == goLeft) {
-                    act2.lvl22.slots[i].isTarget = true;
-                    break;
+                act2.lvl22.slots[i].isTarget = false;
+            }
+            // Determine correct slot: traverse BST to find where insertKey would go
+            BSTNode* cur = bst.getRoot();
+            int parentKey = -1;
+            bool goLeft = false;
+            while (cur != nullptr) {
+                if (insertKey < cur->key) {
+                    if (cur->left == nullptr) { parentKey = cur->key; goLeft = true; break; }
+                    cur = cur->left;
+                } else if (insertKey > cur->key) {
+                    if (cur->right == nullptr) { parentKey = cur->key; goLeft = false; break; }
+                    cur = cur->right;
+                } else {
+                    break; // duplicate
                 }
             }
-        }
-    }
-
-    void computeAct2EmptySlotsRecurse(BSTNode* node) {
-        if (node == nullptr || act2.lvl22.slotCount >= 16) return;
-        // Find this node in layout
-        int nodeIdx = findVisualNodeByKey(node->key);
-        float nx = (nodeIdx != -1) ? layout.nodes[nodeIdx].x : 640.0f;
-        float ny = (nodeIdx != -1) ? layout.nodes[nodeIdx].y : 300.0f;
-        float slotOffset = 70.0f;
-        if (node->left == nullptr) {
-            BSTEmptySlot& sl = act2.lvl22.slots[act2.lvl22.slotCount++];
-            sl.parentKey = node->key;
-            sl.isLeft = true;
-            sl.x = nx - slotOffset;
-            sl.y = ny + slotOffset;
-            sl.isTarget = false;
-        } else {
-            computeAct2EmptySlotsRecurse(node->left);
-        }
-        if (node->right == nullptr) {
-            BSTEmptySlot& sl = act2.lvl22.slots[act2.lvl22.slotCount++];
-            sl.parentKey = node->key;
-            sl.isLeft = false;
-            sl.x = nx + slotOffset;
-            sl.y = ny + slotOffset;
-            sl.isTarget = false;
-        } else {
-            computeAct2EmptySlotsRecurse(node->right);
+            if (parentKey != -1) {
+                for (int i = 0; i < act2.lvl22.slotCount; i++) {
+                    if (act2.lvl22.slots[i].parentKey == parentKey && act2.lvl22.slots[i].isLeft == goLeft) {
+                        act2.lvl22.slots[i].isTarget = true;
+                        break;
+                    }
+                }
+            }
         }
     }
 
@@ -2056,16 +2066,42 @@ public:
         return idx;
     }
 
+    void completeAct25AndAdvance() {
+        // Stage B presents the lesson; progression happens only after the player's choice.
+        act2.completeLevel25(levelManager.scoreSystem);
+        levelManager.notifyAction("boss", 0);
+
+        if (strcmp(levelManager.playState, "victory") != 0 && levelManager.getCurrentLevel()) {
+            strncpy(levelManager.playState, "victory", sizeof(levelManager.playState) - 1);
+            const int curIdx = levelManager.currentLevelIndex;
+            if (curIdx >= 0 && curIdx < LevelManager::TOTAL_LEVELS) {
+                levelManager.levels[curIdx].isCompleted = true;
+                levelManager.levels[curIdx].starsEarned = act2.lvl25.insertionRecord.stars;
+                levelManager.levels[curIdx].bestScore = act2.lvl25.insertionRecord.score;
+                levelManager.unlockNextLevel();
+            }
+        }
+
+        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+
+        const int nextIdx = levelManager.currentLevelIndex + 1;
+        if (nextIdx < LevelManager::TOTAL_LEVELS && levelManager.levels[nextIdx].isUnlocked) {
+            loadCampaignLevel(nextIdx);
+        } else {
+            setScreenState("campaign_map");
+            setupButtons();
+        }
+    }
+
     void handleAct25StageC() {
-        // Stage C: Build AVL from same values and show explanation
+        // Stage C: Build AVL from same values and show educational explanation
         layout.clear();
         mapAct25AVLNodeToVisual(act2.lvl25.avlTree.getRoot());
         layout.updateLayout(1280.0f, true);
-        levelManager.notifyAction("boss", 0);
-        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+
         setupButtons();
-        hud.setStatus("STAGE C: Sorted insertion created a skewed BST! AVL balancing keeps height O(log n).",
-                      "Balanced AVL tree shown. This is why self-balancing trees are essential.");
+        hud.setStatus("SEARCH IMPOSSIBLE: The skewed BST needs 7 comparisons to reach 70, but the alarm allows only 3.",
+                      "This unbalanced BST is O(n); choose Advance to Act 3 to continue.");
     }
 
     void handleButtonClick(int actionId) {
@@ -2103,6 +2139,10 @@ public:
             handleUndo();
             return;
         } else if (actionId == 203) { // Next Level
+            if (isScreen("level_play") && isAct("act_2") && act2.lvl25.stage == 2) {
+                completeAct25AndAdvance();
+                return;
+            }
             int nextIdx = levelManager.currentLevelIndex + 1;
             if (nextIdx < LevelManager::TOTAL_LEVELS && levelManager.levels[nextIdx].isUnlocked) {
                 loadCampaignLevel(nextIdx);
@@ -2298,43 +2338,40 @@ public:
                     hud.setStatus(fb, "BST Deletion Case Selection");
                     if (ok) {
                         if (caseChoice == 0) {
-                            // Stage 0: Leaf deletion animation
+                            // Stage 1: Leaf deletion (20)
                             eventLog.clear();
                             int vIdx = findVisualNodeByKey(delKey);
                             if (vIdx != -1) eventLog.logUnlink(vIdx, -1, 0, delKey);
-                            eventLog.logDone("Case 1 (Leaf): Unlinked leaf pod");
+                            eventLog.logDone("Stage 1 (Leaf): Node 20 unlinked and removed");
                             eventController.loadFromEventLog(eventLog);
                             eventController.start();
 
                             if (bst.search(delKey)) bst.deleteNode(delKey);
                             syncBSTVisuals();
-                            applyAct2InitialVisuals(3);
                             setupButtons();
                         } else if (caseChoice == 1) {
-                            // Stage 1: One-child deletion animation
+                            // Stage 2: One-child deletion (60)
                             eventLog.clear();
                             int vIdx = findVisualNodeByKey(delKey);
+                            int cIdx = findVisualNodeByKey(65);
                             if (vIdx != -1) eventLog.logUnlink(vIdx, -1, 0, delKey);
-                            eventLog.logDone("Case 2 (One Child): Child promoted");
+                            if (cIdx != -1) eventLog.logVisit(cIdx, 65);
+                            eventLog.logDone("Stage 2 (One Child): Node 60 deleted, child 65 promoted to 70");
                             eventController.loadFromEventLog(eventLog);
                             eventController.start();
 
                             if (bst.search(delKey)) bst.deleteNode(delKey);
                             syncBSTVisuals();
-                            applyAct2InitialVisuals(3);
                             setupButtons();
                         } else if (caseChoice == 2) {
-                            // Stage 2: Two-child case -> highlight right subtree
+                            // Stage 3: Two-child case (50) -> highlight target 50 and successor 60
                             int targetIdx = findVisualNodeByKey(delKey);
                             if (targetIdx != -1) {
                                 layout.nodes[targetIdx].setState("target");
                             }
-                            // Highlight right subtree (70, 60, 85)
-                            for (int i = 0; i < layout.nodeCount; i++) {
-                                if (!layout.nodes[i].active) continue;
-                                if (layout.nodes[i].key == 70 || layout.nodes[i].key == 60 || layout.nodes[i].key == 85) {
-                                    layout.nodes[i].setState("searching");
-                                }
+                            int succIdx = findVisualNodeByKey(60);
+                            if (succIdx != -1) {
+                                layout.nodes[succIdx].setState("highlighted");
                             }
                             setupButtons();
                         }
@@ -2343,36 +2380,74 @@ public:
                 break;
             }
 
-            case 74: // Level 2.4: Scan Range
+            case 77: // Level 2.3: Continue to next stage
+            {
+                if (isScreen("level_play") && isAct("act_2") && strcmp(act2.lvl23.phase, "stage_cleared") == 0) {
+                    act2.advanceLevel23Stage();
+                    syncBSTVisuals();
+                    applyAct2InitialVisuals(3);
+                    setupButtons();
+                    hud.setStatus(act2.lvl23.statusMsg, "BST Deletion");
+                }
+                break;
+            }
+
+            case 78: // Level 2.3: Confirm Successor (60) for Two Children
+            {
+                if (isScreen("level_play") && isAct("act_2") && strcmp(act2.lvl23.phase, "successor_select") == 0) {
+                    char fb[160] = {0};
+                    bool ok = act2.handleLevel23SuccessorClick(60, levelManager.scoreSystem, fb, sizeof(fb));
+                    hud.setStatus(fb, "Inorder Successor Swap");
+                    if (ok) {
+                        eventLog.clear();
+                        int n50 = findVisualNodeByKey(50);
+                        int n60 = findVisualNodeByKey(60);
+                        if (n50 != -1 && n60 != -1) {
+                            eventLog.logSwapValue(n50, n60, 50, 60);
+                            eventLog.logUnlink(n60, -1, 0, 50);
+                        }
+                        eventLog.logDone("Stage 3: Successor 60 swapped with root 50, original successor deleted");
+                        eventController.loadFromEventLog(eventLog);
+                        eventController.start();
+
+                        if (bst.search(50)) bst.deleteNode(50);
+                        syncBSTVisuals();
+                        levelManager.notifyAction("delete", 0);
+                        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                        setupButtons();
+                    }
+                }
+                break;
+            }
+
+            case 74: // Level 2.4: Start Raid [30, 65]
             {
                 if (isScreen("level_play") && isAct("act_2") && !act2.lvl24.isExecuted) {
                     char fb[160] = {0};
                     bool ok = act2.executeRangeQuery(levelManager.scoreSystem, fb, sizeof(fb));
-                    hud.setStatus(fb, "BST Range Query [30, 70]");
+                    hud.setStatus(fb, "BST Range Raid [30, 65]");
                     if (ok) {
                         eventLog.clear();
                         int n50 = findVisualNodeByKey(50);
-                        int n20 = findVisualNodeByKey(20);
-                        int n10 = findVisualNodeByKey(10);
-                        int n35 = findVisualNodeByKey(35);
                         int n30 = findVisualNodeByKey(30);
+                        int n20 = findVisualNodeByKey(20);
                         int n40 = findVisualNodeByKey(40);
-                        int n80 = findVisualNodeByKey(80);
-                        int n90 = findVisualNodeByKey(90);
+                        int n70 = findVisualNodeByKey(70);
+                        int n60 = findVisualNodeByKey(60);
                         int n65 = findVisualNodeByKey(65);
+                        int n80 = findVisualNodeByKey(80);
 
-                        eventLog.logCompare(n50, -1, 50, 30);
                         eventLog.logVisit(n50, 50);
-                        eventLog.logCompare(n20, -1, 20, 30);
-                        eventLog.logHighlightSubtree(n10, "pruned_left");
-                        eventLog.logCompare(n35, -1, 35, 30);
-                        eventLog.logVisit(n35, 35);
+                        eventLog.logCompare(n30, -1, 30, 30);
+                        eventLog.logHighlightSubtree(n20, "pruned_left");
                         eventLog.logVisit(n30, 30);
                         eventLog.logVisit(n40, 40);
-                        eventLog.logCompare(n80, -1, 80, 70);
-                        eventLog.logHighlightSubtree(n90, "pruned_right");
+                        eventLog.logCompare(n70, -1, 70, 65);
+                        eventLog.logVisit(n70, 70);
+                        eventLog.logVisit(n60, 60);
                         eventLog.logVisit(n65, 65);
-                        eventLog.logDone("Range query with pruning complete");
+                        eventLog.logHighlightSubtree(n80, "pruned_right");
+                        eventLog.logDone("Range Raid [30, 65] with subtree pruning complete");
 
                         eventController.loadFromEventLog(eventLog);
                         eventController.start();
@@ -2444,73 +2519,6 @@ public:
             case 34: runRotationDemo("RL"); break;
 
             // ===================== ACT 3 CAMPAIGN BUTTON HANDLERS =====================
-            case 80: // Level 3.2: Rotate Right (LL fix)
-            {
-                if (isScreen("level_play") && isAct("act_3")) {
-                    char fb[160] = {0};
-                    bool ok = act3.handleLevel32Rotation("right", levelManager.scoreSystem, fb, sizeof(fb));
-                    syncAVLVisuals();
-                    hud.setStatus(fb, "Single Rotation (LL -> Right)");
-                    if (ok && act3.lvl32.isLevelComplete) {
-                        levelManager.notifyAction("rotate", 0);
-                        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
-                    }
-                    setupButtons();
-                }
-                break;
-            }
-            case 81: // Level 3.2: Rotate Left (RR fix)  OR  Level 3.5 Phase A repair
-            {
-                if (isScreen("level_play") && isAct("act_3")) {
-                    char fb[160] = {0};
-                    int lvlNum = levelManager.getCurrentLevel() ? levelManager.getCurrentLevel()->levelNumber : 0;
-                    bool ok = false;
-                    if (lvlNum == 2) {
-                        ok = act3.handleLevel32Rotation("left", levelManager.scoreSystem, fb, sizeof(fb));
-                        hud.setStatus(fb, "Single Rotation (RR -> Left)");
-                        if (ok && act3.lvl32.isLevelComplete) {
-                            levelManager.notifyAction("rotate", 0);
-                            SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
-                        }
-                    } else if (lvlNum == 5) {
-                        ok = act3.handleLevel35Repair("left", levelManager.scoreSystem, fb, sizeof(fb));
-                        hud.setStatus(fb, "Phase A: Repair Rotation");
-                    }
-                    syncAVLVisuals();
-                    setupButtons();
-                }
-                break;
-            }
-            case 82: // Level 3.3: LR Double Rotation
-            {
-                if (isScreen("level_play") && isAct("act_3")) {
-                    char fb[160] = {0};
-                    bool ok = act3.handleLevel33CaseSelect("lr", levelManager.scoreSystem, fb, sizeof(fb));
-                    syncAVLVisuals();
-                    hud.setStatus(fb, "Double Rotation (LR Case)");
-                    if (ok && act3.lvl33.isLevelComplete) {
-                        levelManager.notifyAction("rotate", 0);
-                        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
-                    }
-                    setupButtons();
-                }
-                break;
-            }
-            case 83: // Level 3.3: RL Double Rotation
-            {
-                if (isScreen("level_play") && isAct("act_3")) {
-                    char fb[160] = {0};
-                    bool ok = act3.handleLevel33CaseSelect("rl", levelManager.scoreSystem, fb, sizeof(fb));
-                    syncAVLVisuals();
-                    hud.setStatus(fb, "Double Rotation (RL Case)");
-                    if (ok && act3.lvl33.isLevelComplete) {
-                        levelManager.notifyAction("rotate", 0);
-                        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
-                    }
-                    setupButtons();
-                }
-                break;
-            }
             case 84: // Level 3.4: Predict no_rotation
             {
                 if (isScreen("level_play") && isAct("act_3")) {
@@ -2857,12 +2865,50 @@ public:
                 cameraView.setCenter(viewCenter);
                 panStartPos = sf::Vector2i(event.mouseMove.x, event.mouseMove.y);
             }
+
+            if (isDraggingAVLNode && draggedAVLNodeIndex >= 0 && draggedAVLNodeIndex < layout.nodeCount &&
+                layout.nodes[draggedAVLNodeIndex].active) {
+                sf::Vector2f worldPos = window.mapPixelToCoords(sf::Vector2i(event.mouseMove.x, event.mouseMove.y), cameraView);
+                VisualNode& draggedNode = layout.nodes[draggedAVLNodeIndex];
+                draggedNode.x = worldPos.x;
+                draggedNode.y = worldPos.y;
+                draggedNode.targetX = worldPos.x;
+                draggedNode.targetY = worldPos.y;
+            }
         } else if (event.type == sf::Event::MouseButtonPressed) {
             float mx = static_cast<float>(event.mouseButton.x);
             float my = static_cast<float>(event.mouseButton.y);
 
             if (event.mouseButton.button == sf::Mouse::Left) {
                 inputBox.handleClick(mx, my);
+
+                // Manual AVL repair levels use horizontal pivot drags to choose rotations.
+                if (isScreen("level_play") && isAct("act_3") && levelManager.getCurrentLevel() &&
+                    !isAct3StageTransitionPending && my > 125.0f && my < 680.0f) {
+                    const int lvlNum = levelManager.getCurrentLevel()->levelNumber;
+                    const bool canDragRotation =
+                        (lvlNum == 2 && !act3.lvl32.isLevelComplete) ||
+                        (lvlNum == 3 && !act3.lvl33.isLevelComplete) ||
+                        (lvlNum == 5 && act3.lvl35.phase == 0);
+                    if (canDragRotation) {
+                        sf::Vector2f worldPos = window.mapPixelToCoords(sf::Vector2i(event.mouseButton.x, event.mouseButton.y), cameraView);
+                        int nodeIdx = layout.findNodeAt(worldPos.x, worldPos.y);
+                        if (nodeIdx != -1) {
+                            isDraggingAVLNode = true;
+                            draggedAVLNodeIndex = nodeIdx;
+                            draggedAVLNodeKey = layout.nodes[nodeIdx].key;
+                            draggedAVLLevelNumber = lvlNum;
+                            avlDragStartX = worldPos.x;
+                            selectedNodeIndex = nodeIdx;
+                            layout.nodes[nodeIdx].setState("swapping");
+                            char prompt[128];
+                            int pivotKey = lvlNum == 2 ? act3.lvl32.pivotKey :
+                                           (lvlNum == 3 ? act3.lvl33.pivotKey : 50);
+                            snprintf(prompt, sizeof(prompt), "Drag unbalanced pivot pod %d left or right to rotate.", pivotKey);
+                            hud.setStatus(prompt, "Release the mouse to apply the rotation.");
+                        }
+                    }
+                }
 
                 bool clickedButton = false;
                 for (int i = 0; i < buttonCount; i++) {
@@ -3016,7 +3062,7 @@ public:
                 }
 
                 // Tree pod clicks
-                if (!clickedButton && my > 125.0f && my < 680.0f && (isScreen("level_play") || isScreen("sandbox") || isScreen("endless"))) {
+                if (!clickedButton && !isDraggingAVLNode && !isAct3StageTransitionPending && my > 125.0f && my < 680.0f && (isScreen("level_play") || isScreen("sandbox") || isScreen("endless"))) {
                     sf::Vector2f worldPos = window.mapPixelToCoords(sf::Vector2i(event.mouseButton.x, event.mouseButton.y), cameraView);
                     int clickedNode = layout.findNodeAt(worldPos.x, worldPos.y);
                     if (clickedNode != -1) {
@@ -3159,55 +3205,23 @@ public:
 
                             } else if (lvlNum == 3) {
                                 // Level 2.3: Steal and Collapse
-                                if (strcmp(act2.lvl23.phase, "search") == 0) {
-                                    bool ok = act2.handleLevel23SearchClick(val, levelManager.scoreSystem, fb, sizeof(fb));
-                                    if (ok) {
-                                        layout.nodes[clickedNode].setState("highlighted");
-                                        if (strcmp(act2.lvl23.phase, "case_select") == 0) {
-                                            // Found target — highlight it as target
-                                            layout.nodes[clickedNode].setState("target");
-                                            setupButtons(); // show case selection buttons
-                                        } else {
-                                            // Advanced to next node
-                                            int nextIdx = findVisualNodeByKey(act2.lvl23.currentNodeKey);
-                                            if (nextIdx != -1) layout.nodes[nextIdx].setState("searching");
-                                        }
+                                if (strcmp(act2.lvl23.phase, "case_select") == 0) {
+                                    if (val == act2.lvl23.deleteKey) {
+                                        layout.nodes[clickedNode].setState("target");
+                                        hud.setStatus("Target pod selected! Select deletion case: Leaf Node, One Child, Two Children.", "BST Deletion");
                                     } else {
-                                        layout.nodes[clickedNode].setState("inactive");
-                                        if (levelManager.scoreSystem.isAlarmBreached()) {
-                                            levelManager.notifyAction("fail", 0);
-                                            setupButtons();
-                                        }
+                                        hud.setStatus("Target pod is highlighted in red. Select its deletion case below.", "BST Deletion");
                                     }
-                                    hud.setStatus(fb, "BST Delete: Find target node");
                                 } else if (strcmp(act2.lvl23.phase, "successor_select") == 0) {
-                                    // Clicking the inorder successor
-                                    int delKey = act2.lvl23.deleteKey;
-                                    bool ok = act2.handleLevel23SuccessorClick(val, levelManager.scoreSystem, fb, sizeof(fb));
-                                    if (ok) {
-                                        // Play value swap and unlink animation!
-                                        eventLog.clear();
-                                        int idxTarget = findVisualNodeByKey(delKey);
-                                        int idxSucc = findVisualNodeByKey(val);
-                                        if (idxTarget != -1 && idxSucc != -1) {
-                                            eventLog.logSwapValue(idxTarget, idxSucc, delKey, val);
-                                            eventLog.logUnlink(idxSucc, -1, 0, delKey);
-                                        }
-                                        eventLog.logDone("Case 3: Inorder successor swapped and node deleted");
-                                        eventController.loadFromEventLog(eventLog);
-                                        eventController.start();
-
-                                        if (bst.search(delKey)) bst.deleteNode(delKey);
-                                        syncBSTVisuals();
-                                        levelManager.notifyAction("delete", 0);
-                                        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
-                                        setupButtons();
+                                    // Clicking the inorder successor 60
+                                    if (val == act2.lvl23.expectedSuccessor) {
+                                        handleButtonClick(78); // Confirm Successor
                                     } else {
                                         layout.nodes[clickedNode].setState("inactive");
+                                        hud.setStatus("Not the inorder successor! The successor is the smallest node in the right subtree (60).", "BST Deletion");
                                     }
-                                    hud.setStatus(fb, "Select Inorder Successor");
                                 } else if (strcmp(act2.lvl23.phase, "complete") == 0) {
-                                    hud.setStatus("Deletion complete! Level cleared.", "");
+                                    hud.setStatus("All 3 deletion cases completed! Level cleared.", "BST Deletion Complete");
                                 }
 
                             } else if (lvlNum == 5) {
@@ -3328,6 +3342,61 @@ public:
                 panStartPos = sf::Vector2i(event.mouseButton.x, event.mouseButton.y);
             }
         } else if (event.type == sf::Event::MouseButtonReleased) {
+            if (event.mouseButton.button == sf::Mouse::Left && isDraggingAVLNode) {
+                sf::Vector2f releasePos = window.mapPixelToCoords(sf::Vector2i(event.mouseButton.x, event.mouseButton.y), cameraView);
+                const float dragDistance = releasePos.x - avlDragStartX;
+                const int lvlNum = levelManager.getCurrentLevel() ? levelManager.getCurrentLevel()->levelNumber : 0;
+                const int pivotKey = lvlNum == 2 ? act3.lvl32.pivotKey :
+                                     (lvlNum == 3 ? act3.lvl33.pivotKey : 50);
+                char fb[160] = {0};
+
+                if (draggedAVLLevelNumber != lvlNum || draggedAVLNodeKey != pivotKey) {
+                    snprintf(fb, sizeof(fb), "Drag unbalanced pivot pod %d to perform the rotation.", pivotKey);
+                    syncAVLVisuals();
+                } else if (dragDistance > 24.0f || dragDistance < -24.0f) {
+                    const char* direction = dragDistance > 0.0f ? "right" : "left";
+                    bool ok = false;
+                    if (lvlNum == 2) {
+                        ok = act3.handleLevel32Rotation(direction, levelManager.scoreSystem, fb, sizeof(fb));
+                    } else if (lvlNum == 3) {
+                        ok = act3.handleLevel33CaseSelect(dragDistance > 0.0f ? "lr" : "rl",
+                                                         levelManager.scoreSystem, fb, sizeof(fb));
+                    } else if (lvlNum == 5) {
+                        ok = act3.handleLevel35Repair(direction, levelManager.scoreSystem, fb, sizeof(fb));
+                    }
+
+                    if (ok) {
+                        syncAVLVisualsAnimated();
+                        if (lvlNum == 2 && act3.lvl32.isLevelComplete) {
+                            levelManager.notifyAction("rotate", 0);
+                            SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                        } else if (lvlNum == 3 && act3.lvl33.isLevelComplete) {
+                            levelManager.notifyAction("rotate", 0);
+                            SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                        } else {
+                            isAct3StageTransitionPending = true;
+                            pendingAct3StageLevel = lvlNum;
+                            act3StageTransitionTimer = 0.0f;
+                        }
+                    } else {
+                        syncAVLVisuals();
+                    }
+                    if (!ok && levelManager.scoreSystem.isAlarmBreached()) {
+                        levelManager.notifyAction("fail", 0);
+                        setupButtons();
+                    }
+                } else {
+                    snprintf(fb, sizeof(fb), "Drag pivot pod %d clearly left or right to choose a rotation.", pivotKey);
+                    syncAVLVisuals();
+                }
+
+                hud.setStatus(fb, "Drag the unbalanced pivot left or right to rotate.");
+                isDraggingAVLNode = false;
+                draggedAVLNodeIndex = -1;
+                draggedAVLNodeKey = -1;
+                draggedAVLLevelNumber = 0;
+                setupButtons();
+            }
             for (int i = 0; i < buttonCount; i++) {
                 buttons[i].isPressed = false;
             }
@@ -3379,6 +3448,27 @@ public:
         renderer.updateSpores(dt);
         layout.updatePhysics(dt);
         eventController.update(dt, layout);
+
+        if (isAct3StageTransitionPending && isScreen("level_play") && isAct("act_3") &&
+            levelManager.getCurrentLevel() && levelManager.getCurrentLevel()->levelNumber == pendingAct3StageLevel) {
+            act3StageTransitionTimer += dt;
+            if (act3StageTransitionTimer >= 0.8f) {
+                if (pendingAct3StageLevel == 2) {
+                    act3.setupLevel32Stage(1);
+                    syncAVLVisualsAnimated();
+                    hud.setStatus(act3.lvl32.statusMsg, "Drag the unbalanced pivot pod 10 left for the RR rotation.");
+                } else if (pendingAct3StageLevel == 3) {
+                    act3.setupLevel33Stage(1);
+                    syncAVLVisualsAnimated();
+                    hud.setStatus(act3.lvl33.statusMsg, "Drag the unbalanced pivot pod 10 left for the RL double rotation.");
+                }
+                isAct3StageTransitionPending = false;
+                pendingAct3StageLevel = 0;
+            }
+        } else if (isAct3StageTransitionPending) {
+            isAct3StageTransitionPending = false;
+            pendingAct3StageLevel = 0;
+        }
 
         if (!isScreen("menu") && !isScreen("campaign_map")) {
             inputBox.update(0, 0, dt);
@@ -3840,6 +3930,51 @@ public:
         }
 
         window.setView(defaultView);
+
+        if (isScreen("level_play") && isAct("act_2")) {
+            int lvlNum = levelManager.getCurrentLevel() ? levelManager.getCurrentLevel()->levelNumber : 1;
+            if (lvlNum == 4 && act2.lvl24.isExecuted) {
+                // Section 6: Range Raid Result Panel
+                float px = 970.0f;
+                float py = 150.0f;
+                float pw = 280.0f;
+                float ph = 265.0f;
+
+                sf::RectangleShape panelBg(sf::Vector2f(pw, ph));
+                panelBg.setPosition(px, py);
+                panelBg.setFillColor(sf::Color(15, 18, 28, 240));
+                panelBg.setOutlineColor(sf::Color(64, 224, 208, 220));
+                panelBg.setOutlineThickness(2.0f);
+                window.draw(panelBg);
+
+                sf::Text pTitle;
+                pTitle.setFont(renderer.font);
+                pTitle.setString("RANGE RAID RESULTS");
+                pTitle.setCharacterSize(16);
+                pTitle.setStyle(sf::Text::Bold);
+                pTitle.setFillColor(sf::Color(255, 215, 0));
+                pTitle.setPosition(px + 14.0f, py + 12.0f);
+                window.draw(pTitle);
+
+                char rBuf[256];
+                snprintf(rBuf, sizeof(rBuf),
+                    "Requested Range: [30, 65]\n\n"
+                    "Matching Treasures:\n"
+                    "  30, 40, 50, 60, 65\n\n"
+                    "Total Treasures Found: %d\n"
+                    "Pruned: 2 Subtrees (20, 80)\n"
+                    "Status: Raid Completed\n"
+                    "+150 Pruning Bonus!",
+                    act2.lvl24.matchingCount);
+                sf::Text pBody;
+                pBody.setFont(renderer.font);
+                pBody.setString(rBuf);
+                pBody.setCharacterSize(13);
+                pBody.setFillColor(sf::Color(220, 230, 240));
+                pBody.setPosition(px + 14.0f, py + 42.0f);
+                window.draw(pBody);
+            }
+        }
 
         if (isAct("act_4")) {
             renderer.renderHeapArray(window, heap.getArray(), heap.getSize(), selectedNodeIndex, layout);

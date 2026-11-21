@@ -153,6 +153,154 @@ public:
         }
     }
 
+    template <typename SlotType>
+    void assignInorderWithSlots(int idx, int depth, int& orderCount,
+                                int inorderIndices[], int depths[],
+                                SlotType slots[], int slotParentIdx[],
+                                int slotInorder[], int slotDepth[],
+                                int& slotCount, int maxSlots)
+    {
+        if (idx < 0 || idx >= nodeCount || !nodes[idx].active) return;
+        depths[idx] = depth;
+
+        if (nodes[idx].leftChildIndex != -1) {
+            assignInorderWithSlots(nodes[idx].leftChildIndex, depth + 1, orderCount,
+                                   inorderIndices, depths, slots, slotParentIdx,
+                                   slotInorder, slotDepth, slotCount, maxSlots);
+        } else {
+            if (slotCount < maxSlots) {
+                int s = slotCount++;
+                slots[s].parentKey = nodes[idx].key;
+                slots[s].isLeft = true;
+                slots[s].isTarget = false;
+                slotParentIdx[s] = idx;
+                slotDepth[s] = depth + 1;
+                slotInorder[s] = orderCount++;
+            }
+        }
+
+        inorderIndices[idx] = orderCount++;
+
+        if (nodes[idx].rightChildIndex != -1) {
+            assignInorderWithSlots(nodes[idx].rightChildIndex, depth + 1, orderCount,
+                                   inorderIndices, depths, slots, slotParentIdx,
+                                   slotInorder, slotDepth, slotCount, maxSlots);
+        } else {
+            if (slotCount < maxSlots) {
+                int s = slotCount++;
+                slots[s].parentKey = nodes[idx].key;
+                slots[s].isLeft = false;
+                slots[s].isTarget = false;
+                slotParentIdx[s] = idx;
+                slotDepth[s] = depth + 1;
+                slotInorder[s] = orderCount++;
+            }
+        }
+    }
+
+    template <typename SlotType>
+    void centerParentsWithSlots(int idx, SlotType slots[], const int slotParentIdx[], int slotCount) {
+        if (idx < 0 || idx >= nodeCount || !nodes[idx].active) return;
+
+        int left = nodes[idx].leftChildIndex;
+        int right = nodes[idx].rightChildIndex;
+
+        if (left != -1) centerParentsWithSlots(left, slots, slotParentIdx, slotCount);
+        if (right != -1) centerParentsWithSlots(right, slots, slotParentIdx, slotCount);
+
+        float leftX = nodes[idx].targetX;
+        float rightX = nodes[idx].targetX;
+        bool hasLeft = false;
+        bool hasRight = false;
+
+        if (left != -1) {
+            leftX = nodes[left].targetX;
+            hasLeft = true;
+        } else {
+            for (int s = 0; s < slotCount; s++) {
+                if (slotParentIdx[s] == idx && slots[s].isLeft) {
+                    leftX = slots[s].x;
+                    hasLeft = true;
+                    break;
+                }
+            }
+        }
+
+        if (right != -1) {
+            rightX = nodes[right].targetX;
+            hasRight = true;
+        } else {
+            for (int s = 0; s < slotCount; s++) {
+                if (slotParentIdx[s] == idx && !slots[s].isLeft) {
+                    rightX = slots[s].x;
+                    hasRight = true;
+                    break;
+                }
+            }
+        }
+
+        if (hasLeft && hasRight) {
+            nodes[idx].targetX = (leftX + rightX) * 0.5f;
+        } else if (hasLeft) {
+            nodes[idx].targetX = leftX + 45.0f;
+        } else if (hasRight) {
+            nodes[idx].targetX = rightX - 45.0f;
+        }
+    }
+
+    template <typename SlotType>
+    void updateLayoutWithNullSlots(float screenWidth, SlotType slots[], int& slotCount, int maxSlots, bool snapImmediate = true) {
+        int rootIdx = findRootIndex();
+        if (rootIdx == -1) {
+            slotCount = 0;
+            return;
+        }
+
+        int inorderIndices[MAX_NODES];
+        int depths[MAX_NODES];
+        for (int i = 0; i < MAX_NODES; i++) {
+            inorderIndices[i] = -1;
+            depths[i] = 0;
+        }
+
+        int slotParentIdx[64];
+        int slotInorder[64];
+        int slotDepth[64];
+        slotCount = 0;
+
+        int totalOrdered = 0;
+        assignInorderWithSlots(rootIdx, 0, totalOrdered, inorderIndices, depths,
+                               slots, slotParentIdx, slotInorder, slotDepth, slotCount, maxSlots);
+        if (totalOrdered == 0) return;
+
+        float minSpacing = (totalOrdered > 16) ? 52.0f : ((totalOrdered > 10) ? 60.0f : 74.0f);
+        float totalWidth = (totalOrdered - 1) * minSpacing;
+        float startX = canvasCenterX - totalWidth * 0.5f;
+        if (startX < 70.0f) startX = 70.0f;
+
+        for (int i = 0; i < nodeCount; i++) {
+            if (!nodes[i].active || inorderIndices[i] == -1) continue;
+            nodes[i].targetX = startX + inorderIndices[i] * minSpacing;
+            nodes[i].targetY = canvasTopY + depths[i] * levelHeight;
+        }
+
+        for (int s = 0; s < slotCount; s++) {
+            slots[s].x = startX + slotInorder[s] * minSpacing;
+            slots[s].y = canvasTopY + slotDepth[s] * levelHeight;
+        }
+
+        // Apply bottom-up centering for parents over their children (real or null slots)
+        centerParentsWithSlots(rootIdx, slots, slotParentIdx, slotCount);
+
+        for (int i = 0; i < nodeCount; i++) {
+            if (!nodes[i].active) continue;
+            if (snapImmediate || (nodes[i].x == 0.0f && nodes[i].y == 0.0f)) {
+                nodes[i].x = nodes[i].targetX;
+                nodes[i].y = nodes[i].targetY;
+            }
+        }
+    }
+
     void updateLayout(float screenWidth, bool snapImmediate = true) {
         int rootIdx = findRootIndex();
         if (rootIdx == -1) return;

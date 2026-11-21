@@ -82,7 +82,7 @@ void Act3Controller::initLevel(int levelNum, AVLTree* avlModel, ScoreSystem& sco
         lvl35.targetFound = false;
         lvl35.isLevelComplete = false;
         snprintf(lvl35.statusMsg, sizeof(lvl35.statusMsg),
-                 "BOSS PHASE A: Vault is unbalanced at Pod 50 (RR imbalance). Repair with Left Rotation!");
+                 "BOSS PHASE A: Pod 50 has an RR imbalance. Drag pod 50 to the left to repair the tree.");
         score.reset(4, 8); // optimal 4, cap 8
     }
 }
@@ -151,7 +151,7 @@ void Act3Controller::setupLevel32Stage(int stageNum) {
         currentAVL->insertRaw(10);
         lvl32.pivotKey = 30;
         snprintf(lvl32.statusMsg, sizeof(lvl32.statusMsg),
-                 "STAGE 1/2 (LL Case): Pod 30 has BF = +2. Choose Rotate Right (LL) to balance.");
+                 "STAGE 1/2 (LL Case): Pod 30 has BF = +2. Drag pod 30 to the right to balance.");
     } else if (stageNum == 1) {
         // Stage 1: RR case
         currentAVL->insertRaw(10);
@@ -159,7 +159,7 @@ void Act3Controller::setupLevel32Stage(int stageNum) {
         currentAVL->insertRaw(30);
         lvl32.pivotKey = 10;
         snprintf(lvl32.statusMsg, sizeof(lvl32.statusMsg),
-                 "STAGE 2/2 (RR Case): Pod 10 has BF = -2. Choose Rotate Left (RR) to balance.");
+                 "STAGE 2/2 (RR Case): Pod 10 has BF = -2. Drag pod 10 to the left to balance.");
     }
 }
 
@@ -172,8 +172,9 @@ bool Act3Controller::handleLevel32Rotation(const char* rotType, ScoreSystem& sco
             currentAVL->manualRotateRight(30);
             score.addAlarmStep(1);
             lvl32.stage = 1;
-            setupLevel32Stage(1);
-            snprintf(feedback, maxLen, "CORRECT: Right rotation applied to Pod 30. Advancing to Stage 2 (RR Case)!");
+            snprintf(lvl32.statusMsg, sizeof(lvl32.statusMsg),
+                     "Right rotation balanced the LL case. The RR case is next.");
+            snprintf(feedback, maxLen, "CORRECT: Dragging Pod 30 right applied a right rotation. Showing the balanced tree.");
             return true;
         } else {
             score.addPenalty(50, 2);
@@ -214,7 +215,7 @@ void Act3Controller::setupLevel33Stage(int stageNum) {
         currentAVL->insertRaw(20);
         lvl33.pivotKey = 30;
         snprintf(lvl33.statusMsg, sizeof(lvl33.statusMsg),
-                 "STAGE 1/2: Pod 30 (BF=+2) has heavy left child 10 (BF=-1). Identify LR case!");
+                 "STAGE 1/2 (LR Case): Drag pivot pod 30 to the right to perform the double rotation.");
     } else if (stageNum == 1) {
         // Stage 1: RL case
         currentAVL->insertRaw(10);
@@ -222,7 +223,7 @@ void Act3Controller::setupLevel33Stage(int stageNum) {
         currentAVL->insertRaw(20);
         lvl33.pivotKey = 10;
         snprintf(lvl33.statusMsg, sizeof(lvl33.statusMsg),
-                 "STAGE 2/2: Pod 10 (BF=-2) has heavy right child 30 (BF=+1). Identify RL case!");
+                 "STAGE 2/2 (RL Case): Drag pivot pod 10 to the left to perform the double rotation.");
     }
 }
 
@@ -235,8 +236,9 @@ bool Act3Controller::handleLevel33CaseSelect(const char* caseType, ScoreSystem& 
             currentAVL->manualRotateLR(30);
             score.addAlarmStep(1);
             lvl33.stage = 1;
-            setupLevel33Stage(1);
-            snprintf(feedback, maxLen, "CORRECT: LR Double Rotation executed (Left on 10, Right on 30). Moving to Stage 2!");
+            snprintf(lvl33.statusMsg, sizeof(lvl33.statusMsg),
+                     "LR double rotation balanced this tree. The RL case is next.");
+            snprintf(feedback, maxLen, "CORRECT: Dragging pivot Pod 30 right performed the LR double rotation. Showing the balanced tree.");
             return true;
         } else {
             score.addPenalty(50, 2);

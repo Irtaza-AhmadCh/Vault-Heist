@@ -52,6 +52,9 @@ bool UniversalActController::handleAction(const char* action, int value, char* f
         return act2BossInsert(value, feedback, maxLen);
     } else if (strcmp(action, "boss_search") == 0) {
         return act2BossSearch(value, feedback, maxLen);
+    } else if (strcmp(action, "boss") == 0) {
+        if (feedback && maxLen > 0) snprintf(feedback, maxLen, "Boss level completed!");
+        return true;
     }
     return false;
 }
