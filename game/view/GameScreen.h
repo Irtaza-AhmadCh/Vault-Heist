@@ -341,6 +341,46 @@ public:
         collectAVLKeys(node->right, arr, count);
     }
 
+    int getAct4Mechanic(const LevelDef* lvl) const {
+        if (lvl == nullptr) return 1;
+        if (strcmp(lvl->gameplayType, "build_heap") == 0 || strcmp(lvl->requiredAction, "build_heap") == 0) return 1;
+        if (strcmp(lvl->gameplayType, "heap_repair") == 0 || strcmp(lvl->requiredAction, "repair") == 0) return 2;
+        if (strcmp(lvl->gameplayType, "extract_max") == 0 || strcmp(lvl->requiredAction, "extract_max") == 0) return 3;
+        if (strcmp(lvl->gameplayType, "extraction_race") == 0 || strcmp(lvl->requiredAction, "race") == 0) return 4;
+        if (strcmp(lvl->gameplayType, "heap_sort") == 0 || strcmp(lvl->requiredAction, "boss") == 0) return 5;
+        return ((lvl->levelNumber - 1) % 5) + 1;
+    }
+
+    int getAct3Mechanic(const LevelDef* lvl) const {
+        if (lvl == nullptr) return 1;
+        if (strcmp(lvl->gameplayType, "find_imbalance") == 0) return 1;
+        if (strcmp(lvl->gameplayType, "single_rotation") == 0) return 2;
+        if (strcmp(lvl->gameplayType, "double_rotation") == 0) return 3;
+        if (strcmp(lvl->gameplayType, "rotation_prediction") == 0) return 4;
+        if (strcmp(lvl->gameplayType, "order_statistic_boss") == 0) return 5;
+        return ((lvl->levelNumber - 1) % 5) + 1;
+    }
+
+    int getAct2Mechanic(const LevelDef* lvl) const {
+        if (lvl == nullptr) return 1;
+        if (strcmp(lvl->gameplayType, "guided_search") == 0 || strcmp(lvl->requiredAction, "search") == 0) return 1;
+        if (strcmp(lvl->gameplayType, "guided_insert") == 0 || strcmp(lvl->requiredAction, "insert") == 0) return 2;
+        if (strcmp(lvl->gameplayType, "staged_delete") == 0 || strcmp(lvl->requiredAction, "delete") == 0) return 3;
+        if (strcmp(lvl->gameplayType, "range_query") == 0 || strcmp(lvl->requiredAction, "range") == 0) return 4;
+        if (strcmp(lvl->gameplayType, "degeneration_boss") == 0 || strcmp(lvl->requiredAction, "boss") == 0) return 5;
+        return ((lvl->levelNumber - 1) % 5) + 1;
+    }
+
+    int getAct1Mechanic(const LevelDef* lvl) const {
+        if (lvl == nullptr) return 1;
+        if (strcmp(lvl->gameplayType, "traversal_stages") == 0) return 1;
+        if (strcmp(lvl->gameplayType, "reconstruct_tree") == 0) return 2;
+        if (strcmp(lvl->gameplayType, "height_diameter") == 0) return 3;
+        if (strcmp(lvl->gameplayType, "lca_search") == 0) return 4;
+        if (strcmp(lvl->gameplayType, "tree_mirror") == 0) return 5;
+        return ((lvl->levelNumber - 1) % 5) + 1;
+    }
+
     void loadCampaignLevel(int levelIndex) {
         if (!levelManager.loadLevel(levelIndex)) return;
 
@@ -410,18 +450,19 @@ public:
             eventController.clear();
             selectedNodeIndex = -1;
             heap.setEventLog(&eventLog);
-            act4.initLevel(lvl->levelNumber, &heap, levelManager.scoreSystem);
+            int mech = getAct4Mechanic(lvl);
+            act4.initLevel(lvl->levelNumber, &heap, levelManager.scoreSystem, lvl);
             syncHeapVisuals();
-            applyAct4InitialVisuals(lvl->levelNumber);
-            if (lvl->levelNumber == 1) {
+            applyAct4InitialVisuals(mech);
+            if (mech == 1) {
                 hud.setStatus(act4.lvl41.statusMsg);
-            } else if (lvl->levelNumber == 2) {
+            } else if (mech == 2) {
                 hud.setStatus(act4.lvl42.statusMsg);
-            } else if (lvl->levelNumber == 3) {
+            } else if (mech == 3) {
                 hud.setStatus(act4.lvl43.statusMsg);
-            } else if (lvl->levelNumber == 4) {
+            } else if (mech == 4) {
                 hud.setStatus(act4.lvl44.statusMsg);
-            } else if (lvl->levelNumber == 5) {
+            } else if (mech == 5) {
                 hud.setStatus(act4.lvl45.statusMsg);
             }
         }
@@ -759,8 +800,8 @@ public:
             }
         } else if (inAct4) {
             if (isScreen("level_play")) {
-                int lvlNum = levelManager.getCurrentLevel() ? levelManager.getCurrentLevel()->levelNumber : 1;
-                if (lvlNum == 1) {
+                int mech = getAct4Mechanic(levelManager.getCurrentLevel());
+                if (mech == 1) {
                     if (!act4.lvl41.isLevelComplete) {
                         if (act4.lvl41.selectedChildIndex != -1) {
                             char btnLabel[64];
@@ -776,7 +817,7 @@ public:
                             x1 += 140.0f + gap;
                         }
                     }
-                } else if (lvlNum == 2) {
+                } else if (mech == 2) {
                     if (!act4.lvl42.isLevelComplete) {
                         if (act4.lvl42.round == 1) {
                             if (act4.lvl42.selectedChildIndex != -1) {
@@ -795,7 +836,7 @@ public:
                             x1 += 160.0f + gap;
                         }
                     }
-                } else if (lvlNum == 3) {
+                } else if (mech == 3) {
                     if (!act4.lvl43.isLevelComplete) {
                         if (act4.lvl43.subPhase == 0) {
                             buttons[buttonCount++] = BioButton(x1, row1Y, 150.0f, btnH, "Extract Maximum", 112, true);
@@ -814,7 +855,7 @@ public:
                             }
                         }
                     }
-                } else if (lvlNum == 4) {
+                } else if (mech == 4) {
                     if (!act4.lvl44.isLevelComplete) {
                         if (act4.lvl44.subPhase == 0) {
                             buttons[buttonCount++] = BioButton(x1, row1Y, 150.0f, btnH, "Extract Maximum", 114, true);
@@ -833,7 +874,7 @@ public:
                             }
                         }
                     }
-                } else if (lvlNum == 5) {
+                } else if (mech == 5) {
                     if (!act4.lvl45.isLevelComplete) {
                         if (strcmp(act4.lvl45.phase, "build") == 0) {
                             if (act4.lvl45.selectedChildIndex != -1) {
@@ -3037,9 +3078,9 @@ public:
             case 97: // Act 4: Cancel Selection
             {
                 if (isScreen("level_play") && isAct("act_4")) {
-                    int lvlNum = levelManager.getCurrentLevel() ? levelManager.getCurrentLevel()->levelNumber : 1;
+                    int mech = getAct4Mechanic(levelManager.getCurrentLevel());
                     act4.cancelSelection();
-                    applyAct4InitialVisuals(lvlNum);
+                    applyAct4InitialVisuals(mech);
                     hud.setStatus("Selection cleared. Select the larger child or choose operation.");
                     setupButtons();
                 }
@@ -3438,21 +3479,21 @@ public:
                             if (mx >= cellLeft && mx <= cellLeft + cellW) {
                                 selectedNodeIndex = cellIdx;
                                 if (isScreen("level_play")) {
-                                    int lvlNum = levelManager.getCurrentLevel() ? levelManager.getCurrentLevel()->levelNumber : 0;
+                                    int mech = getAct4Mechanic(levelManager.getCurrentLevel());
                                     char fb[160] = {0};
                                     bool ok = false;
-                                    if (lvlNum == 1) {
+                                    if (mech == 1) {
                                         ok = act4.handleLevel41NodeClick(cellIdx, levelManager.scoreSystem, fb, sizeof(fb));
-                                    } else if (lvlNum == 2) {
+                                    } else if (mech == 2) {
                                         ok = act4.handleLevel42NodeClick(cellIdx, levelManager.scoreSystem, fb, sizeof(fb));
-                                    } else if (lvlNum == 3) {
+                                    } else if (mech == 3) {
                                         ok = act4.handleLevel43NodeClick(cellIdx, levelManager.scoreSystem, fb, sizeof(fb));
-                                    } else if (lvlNum == 4) {
+                                    } else if (mech == 4) {
                                         ok = act4.handleLevel44NodeClick(cellIdx, levelManager.scoreSystem, fb, sizeof(fb));
-                                    } else if (lvlNum == 5) {
+                                    } else if (mech == 5) {
                                         ok = act4.handleLevel45NodeClick(cellIdx, levelManager.scoreSystem, fb, sizeof(fb));
                                     }
-                                    applyAct4InitialVisuals(lvlNum);
+                                    applyAct4InitialVisuals(mech);
                                     if (!ok && levelManager.scoreSystem.isAlarmBreached()) {
                                         levelManager.notifyAction("fail", 0);
                                         setupButtons();
@@ -3706,21 +3747,21 @@ public:
                                 hud.setStatus(buf, "Badges show balance factor and order-statistic subtree size.");
                             } else if (isAct("act_4")) {
                                 if (isScreen("level_play")) {
-                                    int lvlNum = levelManager.getCurrentLevel() ? levelManager.getCurrentLevel()->levelNumber : 0;
+                                    int mech = getAct4Mechanic(levelManager.getCurrentLevel());
                                     char fb[160] = {0};
                                     bool ok = false;
-                                    if (lvlNum == 1) {
+                                    if (mech == 1) {
                                         ok = act4.handleLevel41NodeClick(clickedNode, levelManager.scoreSystem, fb, sizeof(fb));
-                                    } else if (lvlNum == 2) {
+                                    } else if (mech == 2) {
                                         ok = act4.handleLevel42NodeClick(clickedNode, levelManager.scoreSystem, fb, sizeof(fb));
-                                    } else if (lvlNum == 3) {
+                                    } else if (mech == 3) {
                                         ok = act4.handleLevel43NodeClick(clickedNode, levelManager.scoreSystem, fb, sizeof(fb));
-                                    } else if (lvlNum == 4) {
+                                    } else if (mech == 4) {
                                         ok = act4.handleLevel44NodeClick(clickedNode, levelManager.scoreSystem, fb, sizeof(fb));
-                                    } else if (lvlNum == 5) {
+                                    } else if (mech == 5) {
                                         ok = act4.handleLevel45NodeClick(clickedNode, levelManager.scoreSystem, fb, sizeof(fb));
                                     }
-                                    applyAct4InitialVisuals(lvlNum);
+                                    applyAct4InitialVisuals(mech);
                                     if (!ok && levelManager.scoreSystem.isAlarmBreached()) {
                                         levelManager.notifyAction("fail", 0);
                                         setupButtons();

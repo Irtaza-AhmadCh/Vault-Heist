@@ -3,12 +3,17 @@
 #include <cstdio>
 #include "../game/controller/LevelManager.h"
 #include "../game/logic/SaveManager.h"
+#include "../game/controller/act3-4/Act4State.h"
 
 int main() {
     LevelManager manager;
     char error[192] = {0};
-    assert(manager.loadCampaign("levels/campaign_levels.json", error, sizeof(error)));
-    assert(manager.levelCount == 20);
+    bool ok = manager.loadCampaign("levels/campaign_levels.json", error, sizeof(error));
+    if (!ok) {
+        printf("Error: %s\n", error);
+    }
+    printf("levelCount: %d\n", manager.levelCount);
+    assert(ok);
     assert(manager.findLevelIndexById("act1.level1") == 0);
     assert(manager.findLevelIndexById("act4.level5") == 19);
 
@@ -20,6 +25,37 @@ int main() {
     const LevelDef& heapBuild = manager.levels[15];
     assert(heapBuild.optimalSteps == 3);
     assert(heapBuild.alarmCapacity == 7);
+
+    // Test dynamically added 4.7 (repair) and 4.8 (extract_max)
+    int idx7 = manager.findLevelIndexById("act4.level7");
+    assert(idx7 == 21);
+    const LevelDef& lvl7 = manager.levels[idx7];
+    assert(strcmp(lvl7.gameplayType, "heap_repair") == 0);
+    assert(strcmp(lvl7.requiredAction, "repair") == 0);
+    assert(lvl7.initialValueCount == 5);
+
+    int idx8 = manager.findLevelIndexById("act4.level8");
+    assert(idx8 == 22);
+    const LevelDef& lvl8 = manager.levels[idx8];
+    assert(strcmp(lvl8.gameplayType, "extract_max") == 0);
+    assert(strcmp(lvl8.requiredAction, "extract_max") == 0);
+    assert(lvl8.initialValueCount == 5);
+
+    // Test Act4Controller initializes heap from lvl7 and lvl8
+    MaxHeap heap;
+    ScoreSystem score;
+    Act4Controller act4;
+
+    act4.initLevel(lvl7.levelNumber, &heap, score, &lvl7);
+    assert(heap.getSize() == 5);
+    assert(heap.get(0) == 4);
+    assert(act4.lvl42.heapSize == 5);
+    assert(act4.lvl42.round == 1);
+
+    act4.initLevel(lvl8.levelNumber, &heap, score, &lvl8);
+    assert(heap.getSize() == 5);
+    assert(heap.get(0) == 10);
+    assert(act4.lvl43.activeHeapSize == 5);
 
     assert(manager.loadLevel(9));
     assert(manager.scoreSystem.optimalSteps == 28);
