@@ -64,6 +64,14 @@ public:
     int getRootHeight() const;
     int getRootSize() const;
     bool isEmpty() const;
+
+    AVLNode* findNode(int key) const;
+    void insertRaw(int key, int value = 0);
+    bool manualRotateLeft(int pivotKey);
+    bool manualRotateRight(int pivotKey);
+    bool manualRotateLR(int pivotKey);
+    bool manualRotateRL(int pivotKey);
+    const char* predictRotationOnInsert(int key) const;
 };
 
 #endif

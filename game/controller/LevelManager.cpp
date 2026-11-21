@@ -65,56 +65,56 @@ void LevelManager::initLevels() {
                              "boss", 0, 28);
 
     // ===== ACT 3: The Architect's Wing (AVL Tree) =====
-    levels[idx++] = LevelDef(3, 1, "Level 3.1: Balance Detection", "The Architect's Wing", "avl",
-                             "Inspect Balance Factor badges: BF = height(left) - height(right).",
-                             "A balanced AVL node has |BF| <= 1.",
-                             "search", 25, 2);
+    levels[idx++] = LevelDef(3, 1, "Level 3.1: Read the Badges", "The Architect's Wing", "avl",
+                             "Identify all unbalanced nodes (|BF| > 1) in the vault.",
+                             "Inspect badges: green is balanced (-1, 0, +1), red violates AVL invariant.",
+                             "search", 0, 2);
 
     levels[idx++] = LevelDef(3, 2, "Level 3.2: Single Rotations (LL & RR)", "The Architect's Wing", "avl",
-                             "Demonstrate Single Rotations: LL (Right rotation) or RR (Left rotation).",
-                             "Click 'Demo LL' or 'Demo RR' to rebalance the vault.",
-                             "demo_ll", 0, 2);
+                             "Repair LL and RR imbalances using single rotations.",
+                             "LL requires Right rotation; RR requires Left rotation.",
+                             "rotate", 0, 2);
 
     levels[idx++] = LevelDef(3, 3, "Level 3.3: Double Rotations (LR & RL)", "The Architect's Wing", "avl",
-                             "Demonstrate Double Rotations: LR or RL to restore balance.",
-                             "Click 'Demo LR' or 'Demo RL' to execute the double pivot.",
-                             "demo_lr", 0, 2);
+                             "Identify and repair LR and RL imbalances using double rotations.",
+                             "LR is Left-Right double rotation; RL is Right-Left double rotation.",
+                             "rotate", 0, 2);
 
-    levels[idx++] = LevelDef(3, 4, "Level 3.4: Autonomous Balancing", "The Architect's Wing", "avl",
-                             "Insert key 15 and observe automatic rebalancing.",
-                             "AVL trees autonomously detect imbalances and trigger rotations.",
-                             "insert", 15, 3);
+    levels[idx++] = LevelDef(3, 4, "Level 3.4: Auto Mode and Prediction", "The Architect's Wing", "avl",
+                             "Predict which rotation will occur before each insertion, then watch auto-rebalance.",
+                             "Trace insertion path to determine if BF reaches +2 or -2.",
+                             "insert", 0, 5);
 
-    levels[idx++] = LevelDef(3, 5, "Level 3.5: Order Statistics", "The Architect's Wing", "avl",
-                             "Extract the 3rd smallest key in O(log N) using Subtree Sizes.",
-                             "Augmented subtree sizes enable fast order-statistic queries.",
-                             "kth", 3, 2);
+    levels[idx++] = LevelDef(3, 5, "Level 3.5: Boss: Order-Statistic Heist", "The Architect's Wing", "avl",
+                             "Repair the unbalanced BST, then steal the 3rd largest treasure in O(log N).",
+                             "Balance RR at 50, then use subtreeSize to navigate to the 3rd largest node.",
+                             "boss", 50, 4);
 
     // ===== ACT 4: The Heap Fortress (Max Heap) =====
-    levels[idx++] = LevelDef(4, 1, "Level 4.1: Chamber Assembly", "The Heap Fortress", "heap",
-                             "Build a Max Heap from raw elements using Floyd's algorithm.",
-                             "Bottom-up heap construction runs in optimal O(N) time.",
-                             "build_heap", 0, 5);
+    levels[idx++] = LevelDef(4, 1, "Level 4.1: Activate the Vault", "The Heap Fortress", "heap",
+                             "Build a valid Max Heap from raw elements using bottom-up construction.",
+                             "Inspect each parent bottom-up; compare with children and swap with the larger child.",
+                             "build_heap", 0, 3);
 
-    levels[idx++] = LevelDef(4, 2, "Level 4.2: Priority Repair", "The Heap Fortress", "heap",
-                             "Execute Sift Down on root [0] to restore heap property.",
-                             "Parent must be greater than or equal to both children.",
-                             "sift_down", 0, 3);
+    levels[idx++] = LevelDef(4, 2, "Level 4.2: Repair the Security Locks", "The Heap Fortress", "heap",
+                             "Execute Sift-down (Round A) and Sift-up (Round B) to restore heap mechanism.",
+                             "Sift down root 4 with larger child; then sift up new treasure 12 to root.",
+                             "repair", 0, 4);
 
-    levels[idx++] = LevelDef(4, 3, "Level 4.3: Apex Extraction", "The Heap Fortress", "heap",
-                             "Extract the Maximum element from the chamber root.",
-                             "Root is severed, last element promoted, and sifted down.",
-                             "extract_max", 0, 4);
+    levels[idx++] = LevelDef(4, 3, "Level 4.3: Extract the Greatest Treasure", "The Heap Fortress", "heap",
+                             "Repeatedly extract the root maximum and repair remaining heap with sift-down.",
+                             "Swap root with last active element, shrink heap size, and sift down new root.",
+                             "extract_max", 0, 8);
 
-    levels[idx++] = LevelDef(4, 4, "Level 4.4: Ascending Sort", "The Heap Fortress", "heap",
-                             "Execute Heap Sort to sort all elements into the 1D memory array.",
-                             "Repeated extract-max places elements in final sorted order.",
-                             "heap_sort", 0, 8);
+    levels[idx++] = LevelDef(4, 4, "Level 4.4: Race Against the Guards", "The Heap Fortress", "heap",
+                             "Complete 4 extraction/heapify iterations before the alarm threshold triggers lockdown.",
+                             "Work efficiently: each extraction requires root/last swap and sift-down.",
+                             "race", 0, 7);
 
-    levels[idx++] = LevelDef(4, 5, "Level 4.5: Priority Mastery", "The Heap Fortress", "heap",
-                             "Insert priority element 99 and verify Max-Heap validation.",
-                             "Appends to end and sifts up to highest priority position.",
-                             "insert", 99, 3);
+    levels[idx++] = LevelDef(4, 5, "Level 4.5: Final Vault Boss", "The Heap Fortress", "heap",
+                             "Execute independent full Heap Sort: Phase A build, Phase B extract/sort, Phase C validate.",
+                             "Build max heap bottom-up, then perform repeated extractions until array is sorted.",
+                             "boss", 0, 12);
 }
 
 bool LevelManager::loadLevelsFromJson(const char* filepath) {
@@ -257,7 +257,12 @@ bool LevelManager::checkVictory(const char* actionName, int value) {
     }
 
     // Secondary matches (e.g. LL vs RR or LR vs RL or kth vs rank)
-    if (strcmp(lvl.requiredAction, "boss") == 0 && strcmp(actionName, "boss") == 0) return true;
+    if (strcmp(lvl.requiredAction, "boss") == 0 && (strcmp(actionName, "boss") == 0 || strcmp(actionName, "heap_sort") == 0)) return true;
+    if (strcmp(lvl.requiredAction, "repair") == 0 && (strcmp(actionName, "repair") == 0 || strcmp(actionName, "sift_down") == 0 || strcmp(actionName, "sift_up") == 0)) return true;
+    if (strcmp(lvl.requiredAction, "race") == 0 && (strcmp(actionName, "race") == 0 || strcmp(actionName, "extract_max") == 0)) return true;
+    if (strcmp(lvl.requiredAction, "build_heap") == 0 && strcmp(actionName, "build_heap") == 0) return true;
+    if (strcmp(lvl.requiredAction, "extract_max") == 0 && strcmp(actionName, "extract_max") == 0) return true;
+    if (strcmp(lvl.requiredAction, "rotate") == 0 && strcmp(actionName, "rotate") == 0) return true;
     if (strcmp(lvl.requiredAction, "demo_ll") == 0 && strcmp(actionName, "demo_rr") == 0) return true;
     if (strcmp(lvl.requiredAction, "demo_lr") == 0 && strcmp(actionName, "demo_rl") == 0) return true;
     if (strcmp(lvl.requiredAction, "sift_down") == 0 && strcmp(actionName, "sift_up") == 0) return true;

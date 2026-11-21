@@ -57,7 +57,7 @@ if not exist "%~dp0libwinpthread-1.dll" if /i not "%CXX%"=="g++" for %%I in ("%C
 rem Close running instance if any to prevent 'Permission denied' linking error
 taskkill /F /IM main.exe >nul 2>nul
 
-"%CXX%" -std=c++17 game\main.cpp game\logic\bst\bst.cpp game\logic\avl\avl_tree.cpp game\logic\heap\max_heap.cpp game\logic\event.cpp game\controller\LevelManager.cpp game\controller\UniversalActController.cpp game\scoring\ScoreSystem.cpp game\logic\SaveManager.cpp game\controller\act1-2\Act1State.cpp game\controller\act1-2\Act2State.cpp -I"%SFML_DIR%\include" -Igame -L"%SFML_DIR%\lib" -lsfml-graphics -lsfml-window -lsfml-system -static-libgcc -static-libstdc++ -o main.exe
+"%CXX%" -std=c++17 game\main.cpp game\logic\bst\bst.cpp game\logic\avl\avl_tree.cpp game\logic\heap\max_heap.cpp game\logic\event.cpp game\controller\LevelManager.cpp game\controller\UniversalActController.cpp game\scoring\ScoreSystem.cpp game\logic\SaveManager.cpp game\controller\act1-2\Act1State.cpp game\controller\act1-2\Act2State.cpp game\controller\act3-4\Act3State.cpp game\controller\act3-4\Act4State.cpp -I"%SFML_DIR%\include" -Igame -L"%SFML_DIR%\lib" -lsfml-graphics -lsfml-window -lsfml-system -static-libgcc -static-libstdc++ -o main.exe
 if errorlevel 1 goto :failed
 
 echo Build successful! Run with run.bat or .\main.exe

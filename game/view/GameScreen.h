@@ -24,6 +24,8 @@
 #include "../controller/UndoManager.h"
 #include "../controller/act1-2/Act1State.h"
 #include "../controller/act1-2/Act2State.h"
+#include "../controller/act3-4/Act3State.h"
+#include "../controller/act3-4/Act4State.h"
 
 // Standardized string identifiers per guardrails:
 // Screen states: "menu", "campaign_map", "level_play", "sandbox", "endless"
@@ -54,6 +56,8 @@ public:
     UndoManager undoManager;
     Act1Controller act1;
     Act2Controller act2;
+    Act3Controller act3;
+    Act4Controller act4;
 
     static const int MAX_BUTTONS = 48;
     BioButton buttons[MAX_BUTTONS];
@@ -261,11 +265,36 @@ public:
             else if (lvl->levelNumber == 4) hud.setStatus(act2.lvl24.statusMsg);
             else if (lvl->levelNumber == 5) hud.setStatus(act2.lvl25.statusMsg);
         } else if (lvl->actNumber == 3) {
-            setupDefaultAct3AVL();
-            if (lvl->targetValue > 0) inputBox.setValue(lvl->targetValue);
+            setAct("act_3");
+            eventController.clear();
+            selectedNodeIndex = -1;
+            avl.setEventLog(&eventLog);
+            act3.initLevel(lvl->levelNumber, &avl, levelManager.scoreSystem);
+            syncAVLVisuals();
+            hud.setStatus(act3.lvl31.statusMsg);
+            if (lvl->levelNumber == 2) hud.setStatus(act3.lvl32.statusMsg);
+            else if (lvl->levelNumber == 3) hud.setStatus(act3.lvl33.statusMsg);
+            else if (lvl->levelNumber == 4) hud.setStatus(act3.lvl34.statusMsg);
+            else if (lvl->levelNumber == 5) hud.setStatus(act3.lvl35.statusMsg);
         } else if (lvl->actNumber == 4) {
-            setupDefaultAct4Heap();
-            if (lvl->targetValue > 0) inputBox.setValue(lvl->targetValue);
+            setAct("act_4");
+            eventController.clear();
+            selectedNodeIndex = -1;
+            heap.setEventLog(&eventLog);
+            act4.initLevel(lvl->levelNumber, &heap, levelManager.scoreSystem);
+            syncHeapVisuals();
+            applyAct4InitialVisuals(lvl->levelNumber);
+            if (lvl->levelNumber == 1) {
+                hud.setStatus(act4.lvl41.statusMsg);
+            } else if (lvl->levelNumber == 2) {
+                hud.setStatus(act4.lvl42.statusMsg);
+            } else if (lvl->levelNumber == 3) {
+                hud.setStatus(act4.lvl43.statusMsg);
+            } else if (lvl->levelNumber == 4) {
+                hud.setStatus(act4.lvl44.statusMsg);
+            } else if (lvl->levelNumber == 5) {
+                hud.setStatus(act4.lvl45.statusMsg);
+            }
         }
 
         setScreenState("level_play");
@@ -387,6 +416,14 @@ public:
         if (isScreen("level_play") && inAct2) {
             showInputBox = false;
         }
+        // Act 3 campaign levels are click/button driven — no input box needed
+        if (isScreen("level_play") && inAct3) {
+            showInputBox = false;
+        }
+        // Act 4 campaign levels are click/button driven — no input box needed
+        if (isScreen("level_play") && inAct4) {
+            showInputBox = false;
+        }
 
         if (showInputBox) {
             float inputX = x1 + 10.0f;
@@ -491,33 +528,203 @@ public:
                 x1 += 108.0f + gap;
             }
         } else if (inAct3) {
-            buttons[buttonCount++] = BioButton(x1, row1Y, 80.0f, btnH, "Insert", 10);
-            x1 += 80.0f + gap;
-            buttons[buttonCount++] = BioButton(x1, row1Y, 80.0f, btnH, "Delete", 12);
-            x1 += 80.0f + gap;
-            buttons[buttonCount++] = BioButton(x1, row1Y, 80.0f, btnH, "Search", 11);
-            x1 += 80.0f + gap;
-            buttons[buttonCount++] = BioButton(x1, row1Y, 78.0f, btnH, "Demo LL", 31);
-            x1 += 78.0f + gap;
-            buttons[buttonCount++] = BioButton(x1, row1Y, 78.0f, btnH, "Demo RR", 32);
-            x1 += 78.0f + gap;
-            buttons[buttonCount++] = BioButton(x1, row1Y, 78.0f, btnH, "Demo LR", 33);
-            x1 += 78.0f + gap;
-            buttons[buttonCount++] = BioButton(x1, row1Y, 78.0f, btnH, "Demo RL", 34);
-            x1 += 78.0f + gap;
+            if (isScreen("level_play")) {
+                int lvlNum = levelManager.getCurrentLevel() ? levelManager.getCurrentLevel()->levelNumber : 1;
+                if (lvlNum == 1) {
+                    // Level 3.1: direct node clicks, no special buttons needed
+                } else if (lvlNum == 2) {
+                    // Level 3.2: Stage-dependent rotation buttons
+                    if (act3.lvl32.stage == 0) {
+                        buttons[buttonCount++] = BioButton(x1, row1Y, 130.0f, btnH, "Rotate Right (LL)", 80, true);
+                        x1 += 130.0f + gap;
+                        buttons[buttonCount++] = BioButton(x1, row1Y, 120.0f, btnH, "Rotate Left (RR)", 81);
+                        x1 += 120.0f + gap;
+                    } else if (act3.lvl32.stage == 1) {
+                        buttons[buttonCount++] = BioButton(x1, row1Y, 130.0f, btnH, "Rotate Right (LL)", 80);
+                        x1 += 130.0f + gap;
+                        buttons[buttonCount++] = BioButton(x1, row1Y, 120.0f, btnH, "Rotate Left (RR)", 81, true);
+                        x1 += 120.0f + gap;
+                    }
+                } else if (lvlNum == 3) {
+                    // Level 3.3: Stage-dependent double rotation buttons
+                    if (act3.lvl33.stage == 0) {
+                        buttons[buttonCount++] = BioButton(x1, row1Y, 140.0f, btnH, "LR Double Rotation", 82, true);
+                        x1 += 140.0f + gap;
+                        buttons[buttonCount++] = BioButton(x1, row1Y, 140.0f, btnH, "RL Double Rotation", 83);
+                        x1 += 140.0f + gap;
+                    } else if (act3.lvl33.stage == 1) {
+                        buttons[buttonCount++] = BioButton(x1, row1Y, 140.0f, btnH, "LR Double Rotation", 82);
+                        x1 += 140.0f + gap;
+                        buttons[buttonCount++] = BioButton(x1, row1Y, 140.0f, btnH, "RL Double Rotation", 83, true);
+                        x1 += 140.0f + gap;
+                    }
+                } else if (lvlNum == 4) {
+                    // Level 3.4: Prediction buttons (show for each insertion)
+                    if (!act3.lvl34.isLevelComplete && act3.lvl34.currentIdx < act3.lvl34.totalCount) {
+                        buttons[buttonCount++] = BioButton(x1, row1Y, 100.0f, btnH, "No Rotation", 84);
+                        x1 += 100.0f + gap;
+                        buttons[buttonCount++] = BioButton(x1, row1Y, 60.0f, btnH, "LL", 85);
+                        x1 += 60.0f + gap;
+                        buttons[buttonCount++] = BioButton(x1, row1Y, 60.0f, btnH, "RR", 86);
+                        x1 += 60.0f + gap;
+                        buttons[buttonCount++] = BioButton(x1, row1Y, 60.0f, btnH, "LR", 87);
+                        x1 += 60.0f + gap;
+                        buttons[buttonCount++] = BioButton(x1, row1Y, 60.0f, btnH, "RL", 88);
+                        x1 += 60.0f + gap;
+                    }
+                } else if (lvlNum == 5) {
+                    // Level 3.5: Phase A repair or Phase B search/claim
+                    if (act3.lvl35.phase == 0) {
+                        buttons[buttonCount++] = BioButton(x1, row1Y, 120.0f, btnH, "Rotate Left (RR)", 81, true);
+                        x1 += 120.0f + gap;
+                    } else if (act3.lvl35.phase == 1 && act3.lvl35.targetFound) {
+                        buttons[buttonCount++] = BioButton(x1, row1Y, 140.0f, btnH, "Claim Treasure!", 89, true);
+                        x1 += 140.0f + gap;
+                    }
+                }
+            } else {
+                // Sandbox mode: generic AVL buttons
+                buttons[buttonCount++] = BioButton(x1, row1Y, 80.0f, btnH, "Insert", 10);
+                x1 += 80.0f + gap;
+                buttons[buttonCount++] = BioButton(x1, row1Y, 80.0f, btnH, "Delete", 12);
+                x1 += 80.0f + gap;
+                buttons[buttonCount++] = BioButton(x1, row1Y, 80.0f, btnH, "Search", 11);
+                x1 += 80.0f + gap;
+                buttons[buttonCount++] = BioButton(x1, row1Y, 78.0f, btnH, "Demo LL", 31);
+                x1 += 78.0f + gap;
+                buttons[buttonCount++] = BioButton(x1, row1Y, 78.0f, btnH, "Demo RR", 32);
+                x1 += 78.0f + gap;
+                buttons[buttonCount++] = BioButton(x1, row1Y, 78.0f, btnH, "Demo LR", 33);
+                x1 += 78.0f + gap;
+                buttons[buttonCount++] = BioButton(x1, row1Y, 78.0f, btnH, "Demo RL", 34);
+                x1 += 78.0f + gap;
+            }
         } else if (inAct4) {
-            buttons[buttonCount++] = BioButton(x1, row1Y, 88.0f, btnH, "Insert", 10);
-            x1 += 88.0f + gap;
-            buttons[buttonCount++] = BioButton(x1, row1Y, 105.0f, btnH, "Extract Max", 40);
-            x1 += 105.0f + gap;
-            buttons[buttonCount++] = BioButton(x1, row1Y, 98.0f, btnH, "Build Heap", 41);
-            x1 += 98.0f + gap;
-            buttons[buttonCount++] = BioButton(x1, row1Y, 94.0f, btnH, "Heap Sort", 42);
-            x1 += 94.0f + gap;
-            buttons[buttonCount++] = BioButton(x1, row1Y, 88.0f, btnH, "Peek Max", 43);
-            x1 += 88.0f + gap;
-            buttons[buttonCount++] = BioButton(x1, row1Y, 96.0f, btnH, "Check Heap", 44);
-            x1 += 96.0f + gap;
+            if (isScreen("level_play")) {
+                int lvlNum = levelManager.getCurrentLevel() ? levelManager.getCurrentLevel()->levelNumber : 1;
+                if (lvlNum == 1) {
+                    if (!act4.lvl41.isLevelComplete) {
+                        if (act4.lvl41.selectedChildIndex != -1) {
+                            char btnLabel[64];
+                            snprintf(btnLabel, sizeof(btnLabel), "Confirm (%s)", act4.lvl41.proposedSwapText);
+                            buttons[buttonCount++] = BioButton(x1, row1Y, 190.0f, btnH, btnLabel, 95, true);
+                            x1 += 190.0f + gap;
+                            buttons[buttonCount++] = BioButton(x1, row1Y, 130.0f, btnH, "Cancel Selection", 97);
+                            x1 += 130.0f + gap;
+                        } else {
+                            buttons[buttonCount++] = BioButton(x1, row1Y, 130.0f, btnH, "Confirm Swap", 95, false);
+                            x1 += 130.0f + gap;
+                            buttons[buttonCount++] = BioButton(x1, row1Y, 140.0f, btnH, "No Swap Needed", 96, true);
+                            x1 += 140.0f + gap;
+                        }
+                    }
+                } else if (lvlNum == 2) {
+                    if (!act4.lvl42.isLevelComplete) {
+                        if (act4.lvl42.round == 1) {
+                            if (act4.lvl42.selectedChildIndex != -1) {
+                                char btnLabel[64];
+                                snprintf(btnLabel, sizeof(btnLabel), "Confirm (%s)", act4.lvl42.proposedSwapText);
+                                buttons[buttonCount++] = BioButton(x1, row1Y, 190.0f, btnH, btnLabel, 110, true);
+                                x1 += 190.0f + gap;
+                                buttons[buttonCount++] = BioButton(x1, row1Y, 130.0f, btnH, "Cancel Selection", 97);
+                                x1 += 130.0f + gap;
+                            } else {
+                                buttons[buttonCount++] = BioButton(x1, row1Y, 130.0f, btnH, "Confirm Swap", 110, false);
+                                x1 += 130.0f + gap;
+                            }
+                        } else if (act4.lvl42.round == 2) {
+                            buttons[buttonCount++] = BioButton(x1, row1Y, 160.0f, btnH, "Confirm Move Up", 111, true);
+                            x1 += 160.0f + gap;
+                        }
+                    }
+                } else if (lvlNum == 3) {
+                    if (!act4.lvl43.isLevelComplete) {
+                        if (act4.lvl43.subPhase == 0) {
+                            buttons[buttonCount++] = BioButton(x1, row1Y, 150.0f, btnH, "Extract Maximum", 112, true);
+                            x1 += 150.0f + gap;
+                        } else if (act4.lvl43.subPhase == 1) {
+                            if (act4.lvl43.selectedChildIndex != -1) {
+                                char btnLabel[64];
+                                snprintf(btnLabel, sizeof(btnLabel), "Confirm (%s)", act4.lvl43.proposedSwapText);
+                                buttons[buttonCount++] = BioButton(x1, row1Y, 190.0f, btnH, btnLabel, 113, true);
+                                x1 += 190.0f + gap;
+                                buttons[buttonCount++] = BioButton(x1, row1Y, 130.0f, btnH, "Cancel Selection", 97);
+                                x1 += 130.0f + gap;
+                            } else {
+                                buttons[buttonCount++] = BioButton(x1, row1Y, 130.0f, btnH, "Confirm Swap", 113, false);
+                                x1 += 130.0f + gap;
+                            }
+                        }
+                    }
+                } else if (lvlNum == 4) {
+                    if (!act4.lvl44.isLevelComplete) {
+                        if (act4.lvl44.subPhase == 0) {
+                            buttons[buttonCount++] = BioButton(x1, row1Y, 150.0f, btnH, "Extract Maximum", 114, true);
+                            x1 += 150.0f + gap;
+                        } else if (act4.lvl44.subPhase == 1) {
+                            if (act4.lvl44.selectedChildIndex != -1) {
+                                char btnLabel[64];
+                                snprintf(btnLabel, sizeof(btnLabel), "Confirm (%s)", act4.lvl44.proposedSwapText);
+                                buttons[buttonCount++] = BioButton(x1, row1Y, 190.0f, btnH, btnLabel, 115, true);
+                                x1 += 190.0f + gap;
+                                buttons[buttonCount++] = BioButton(x1, row1Y, 130.0f, btnH, "Cancel Selection", 97);
+                                x1 += 130.0f + gap;
+                            } else {
+                                buttons[buttonCount++] = BioButton(x1, row1Y, 130.0f, btnH, "Confirm Swap", 115, false);
+                                x1 += 130.0f + gap;
+                            }
+                        }
+                    }
+                } else if (lvlNum == 5) {
+                    if (!act4.lvl45.isLevelComplete) {
+                        if (strcmp(act4.lvl45.phase, "build") == 0) {
+                            if (act4.lvl45.selectedChildIndex != -1) {
+                                char btnLabel[64];
+                                snprintf(btnLabel, sizeof(btnLabel), "Confirm (%s)", act4.lvl45.proposedSwapText);
+                                buttons[buttonCount++] = BioButton(x1, row1Y, 190.0f, btnH, btnLabel, 116, true);
+                                x1 += 190.0f + gap;
+                                buttons[buttonCount++] = BioButton(x1, row1Y, 130.0f, btnH, "Cancel Selection", 97);
+                                x1 += 130.0f + gap;
+                            } else {
+                                buttons[buttonCount++] = BioButton(x1, row1Y, 130.0f, btnH, "Confirm Swap", 116, false);
+                                x1 += 130.0f + gap;
+                                buttons[buttonCount++] = BioButton(x1, row1Y, 140.0f, btnH, "No Swap Needed", 117, true);
+                                x1 += 140.0f + gap;
+                            }
+                        } else if (strcmp(act4.lvl45.phase, "sort") == 0) {
+                            if (act4.lvl45.subPhase == 0) {
+                                buttons[buttonCount++] = BioButton(x1, row1Y, 150.0f, btnH, "Extract Maximum", 118, true);
+                                x1 += 150.0f + gap;
+                            } else if (act4.lvl45.subPhase == 1) {
+                                if (act4.lvl45.selectedChildIndex != -1) {
+                                    char btnLabel[64];
+                                    snprintf(btnLabel, sizeof(btnLabel), "Confirm (%s)", act4.lvl45.proposedSwapText);
+                                    buttons[buttonCount++] = BioButton(x1, row1Y, 190.0f, btnH, btnLabel, 119, true);
+                                    x1 += 190.0f + gap;
+                                    buttons[buttonCount++] = BioButton(x1, row1Y, 130.0f, btnH, "Cancel Selection", 97);
+                                    x1 += 130.0f + gap;
+                                } else {
+                                    buttons[buttonCount++] = BioButton(x1, row1Y, 130.0f, btnH, "Confirm Swap", 119, false);
+                                    x1 += 130.0f + gap;
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+                buttons[buttonCount++] = BioButton(x1, row1Y, 88.0f, btnH, "Insert", 10);
+                x1 += 88.0f + gap;
+                buttons[buttonCount++] = BioButton(x1, row1Y, 105.0f, btnH, "Extract Max", 40);
+                x1 += 105.0f + gap;
+                buttons[buttonCount++] = BioButton(x1, row1Y, 98.0f, btnH, "Build Heap", 41);
+                x1 += 98.0f + gap;
+                buttons[buttonCount++] = BioButton(x1, row1Y, 94.0f, btnH, "Heap Sort", 42);
+                x1 += 94.0f + gap;
+                buttons[buttonCount++] = BioButton(x1, row1Y, 88.0f, btnH, "Peek Max", 43);
+                x1 += 88.0f + gap;
+                buttons[buttonCount++] = BioButton(x1, row1Y, 96.0f, btnH, "Check Heap", 44);
+                x1 += 96.0f + gap;
+            }
         }
 
         // Far right Menu button in sandbox
@@ -858,6 +1065,153 @@ public:
                 layout.nodes[i].setState("highlighted");
             } else {
                 layout.nodes[i].setState("normal");
+            }
+        }
+    }
+
+    void applyAct4InitialVisuals(int lvlNum) {
+        int n = heap.getSize();
+        if (lvlNum == 1) {
+            int parentIdx = act4.lvl41.currentSiftIndex;
+            int leftIdx = 2 * parentIdx + 1;
+            int rightIdx = 2 * parentIdx + 2;
+
+            for (int i = 0; i < layout.nodeCount && i < n; i++) {
+                if (!layout.nodes[i].active) continue;
+                if (i == act4.lvl41.selectedChildIndex) {
+                    layout.nodes[i].setState("target");
+                } else if (i == parentIdx) {
+                    layout.nodes[i].setState("highlighted");
+                } else if (i == leftIdx || i == rightIdx) {
+                    layout.nodes[i].setState("searching");
+                } else {
+                    layout.nodes[i].setState("idle");
+                }
+            }
+        } else if (lvlNum == 2) {
+            if (act4.lvl42.round == 1) {
+                int parentIdx = act4.lvl42.currentSiftIndex;
+                int leftIdx = 2 * parentIdx + 1;
+                int rightIdx = 2 * parentIdx + 2;
+                for (int i = 0; i < layout.nodeCount && i < n; i++) {
+                    if (!layout.nodes[i].active) continue;
+                    if (i == act4.lvl42.selectedChildIndex) {
+                        layout.nodes[i].setState("target");
+                    } else if (i == parentIdx) {
+                        layout.nodes[i].setState("highlighted");
+                    } else if (i == leftIdx || i == rightIdx) {
+                        layout.nodes[i].setState("searching");
+                    } else {
+                        layout.nodes[i].setState("idle");
+                    }
+                }
+            } else if (act4.lvl42.round == 2) {
+                int childIdx = act4.lvl42.currentUpChildIndex;
+                int parentIdx = act4.lvl42.currentUpParentIndex;
+                for (int i = 0; i < layout.nodeCount && i < n; i++) {
+                    if (!layout.nodes[i].active) continue;
+                    if (i == childIdx) {
+                        layout.nodes[i].setState("target");
+                    } else if (i == parentIdx) {
+                        layout.nodes[i].setState("highlighted");
+                    } else {
+                        layout.nodes[i].setState("idle");
+                    }
+                }
+            }
+        } else if (lvlNum == 3) {
+            int activeSize = act4.lvl43.activeHeapSize;
+            for (int i = 0; i < layout.nodeCount && i < n; i++) {
+                if (!layout.nodes[i].active) continue;
+                if (i >= activeSize) {
+                    layout.nodes[i].setState("inactive");
+                } else if (act4.lvl43.subPhase == 0) {
+                    if (i == 0) layout.nodes[i].setState("target");
+                    else layout.nodes[i].setState("idle");
+                } else if (act4.lvl43.subPhase == 1) {
+                    int pIdx = act4.lvl43.currentSiftIndex;
+                    int leftIdx = 2 * pIdx + 1;
+                    int rightIdx = 2 * pIdx + 2;
+                    if (i == act4.lvl43.selectedChildIndex) {
+                        layout.nodes[i].setState("target");
+                    } else if (i == pIdx) {
+                        layout.nodes[i].setState("highlighted");
+                    } else if ((i == leftIdx || i == rightIdx) && i < activeSize) {
+                        layout.nodes[i].setState("searching");
+                    } else {
+                        layout.nodes[i].setState("idle");
+                    }
+                }
+            }
+        } else if (lvlNum == 4) {
+            int activeSize = act4.lvl44.activeHeapSize;
+            for (int i = 0; i < layout.nodeCount && i < n; i++) {
+                if (!layout.nodes[i].active) continue;
+                if (i >= activeSize) {
+                    layout.nodes[i].setState("inactive");
+                } else if (act4.lvl44.subPhase == 0) {
+                    if (i == 0) layout.nodes[i].setState("target");
+                    else layout.nodes[i].setState("idle");
+                } else if (act4.lvl44.subPhase == 1) {
+                    int pIdx = act4.lvl44.currentSiftIndex;
+                    int leftIdx = 2 * pIdx + 1;
+                    int rightIdx = 2 * pIdx + 2;
+                    if (i == act4.lvl44.selectedChildIndex) {
+                        layout.nodes[i].setState("target");
+                    } else if (i == pIdx) {
+                        layout.nodes[i].setState("highlighted");
+                    } else if ((i == leftIdx || i == rightIdx) && i < activeSize) {
+                        layout.nodes[i].setState("searching");
+                    } else {
+                        layout.nodes[i].setState("idle");
+                    }
+                }
+            }
+        } else if (lvlNum == 5) {
+            if (strcmp(act4.lvl45.phase, "build") == 0) {
+                int parentIdx = act4.lvl45.currentSiftIndex;
+                int leftIdx = 2 * parentIdx + 1;
+                int rightIdx = 2 * parentIdx + 2;
+                for (int i = 0; i < layout.nodeCount && i < n; i++) {
+                    if (!layout.nodes[i].active) continue;
+                    if (i == act4.lvl45.selectedChildIndex) {
+                        layout.nodes[i].setState("target");
+                    } else if (i == parentIdx) {
+                        layout.nodes[i].setState("highlighted");
+                    } else if (i == leftIdx || i == rightIdx) {
+                        layout.nodes[i].setState("searching");
+                    } else {
+                        layout.nodes[i].setState("idle");
+                    }
+                }
+            } else if (strcmp(act4.lvl45.phase, "sort") == 0) {
+                int activeSize = act4.lvl45.activeHeapSize;
+                for (int i = 0; i < layout.nodeCount && i < n; i++) {
+                    if (!layout.nodes[i].active) continue;
+                    if (i >= activeSize) {
+                        layout.nodes[i].setState("inactive");
+                    } else if (act4.lvl45.subPhase == 0) {
+                        if (i == 0) layout.nodes[i].setState("target");
+                        else layout.nodes[i].setState("idle");
+                    } else if (act4.lvl45.subPhase == 1) {
+                        int pIdx = act4.lvl45.currentSiftIndex;
+                        int leftIdx = 2 * pIdx + 1;
+                        int rightIdx = 2 * pIdx + 2;
+                        if (i == act4.lvl45.selectedChildIndex) {
+                            layout.nodes[i].setState("target");
+                        } else if (i == pIdx) {
+                            layout.nodes[i].setState("highlighted");
+                        } else if ((i == leftIdx || i == rightIdx) && i < activeSize) {
+                            layout.nodes[i].setState("searching");
+                        } else {
+                            layout.nodes[i].setState("idle");
+                        }
+                    }
+                }
+            } else if (strcmp(act4.lvl45.phase, "validate") == 0) {
+                for (int i = 0; i < layout.nodeCount && i < n; i++) {
+                    if (layout.nodes[i].active) layout.nodes[i].setState("target");
+                }
             }
         }
     }
@@ -2089,6 +2443,361 @@ public:
             case 33: runRotationDemo("LR"); break;
             case 34: runRotationDemo("RL"); break;
 
+            // ===================== ACT 3 CAMPAIGN BUTTON HANDLERS =====================
+            case 80: // Level 3.2: Rotate Right (LL fix)
+            {
+                if (isScreen("level_play") && isAct("act_3")) {
+                    char fb[160] = {0};
+                    bool ok = act3.handleLevel32Rotation("right", levelManager.scoreSystem, fb, sizeof(fb));
+                    syncAVLVisuals();
+                    hud.setStatus(fb, "Single Rotation (LL -> Right)");
+                    if (ok && act3.lvl32.isLevelComplete) {
+                        levelManager.notifyAction("rotate", 0);
+                        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                    }
+                    setupButtons();
+                }
+                break;
+            }
+            case 81: // Level 3.2: Rotate Left (RR fix)  OR  Level 3.5 Phase A repair
+            {
+                if (isScreen("level_play") && isAct("act_3")) {
+                    char fb[160] = {0};
+                    int lvlNum = levelManager.getCurrentLevel() ? levelManager.getCurrentLevel()->levelNumber : 0;
+                    bool ok = false;
+                    if (lvlNum == 2) {
+                        ok = act3.handleLevel32Rotation("left", levelManager.scoreSystem, fb, sizeof(fb));
+                        hud.setStatus(fb, "Single Rotation (RR -> Left)");
+                        if (ok && act3.lvl32.isLevelComplete) {
+                            levelManager.notifyAction("rotate", 0);
+                            SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                        }
+                    } else if (lvlNum == 5) {
+                        ok = act3.handleLevel35Repair("left", levelManager.scoreSystem, fb, sizeof(fb));
+                        hud.setStatus(fb, "Phase A: Repair Rotation");
+                    }
+                    syncAVLVisuals();
+                    setupButtons();
+                }
+                break;
+            }
+            case 82: // Level 3.3: LR Double Rotation
+            {
+                if (isScreen("level_play") && isAct("act_3")) {
+                    char fb[160] = {0};
+                    bool ok = act3.handleLevel33CaseSelect("lr", levelManager.scoreSystem, fb, sizeof(fb));
+                    syncAVLVisuals();
+                    hud.setStatus(fb, "Double Rotation (LR Case)");
+                    if (ok && act3.lvl33.isLevelComplete) {
+                        levelManager.notifyAction("rotate", 0);
+                        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                    }
+                    setupButtons();
+                }
+                break;
+            }
+            case 83: // Level 3.3: RL Double Rotation
+            {
+                if (isScreen("level_play") && isAct("act_3")) {
+                    char fb[160] = {0};
+                    bool ok = act3.handleLevel33CaseSelect("rl", levelManager.scoreSystem, fb, sizeof(fb));
+                    syncAVLVisuals();
+                    hud.setStatus(fb, "Double Rotation (RL Case)");
+                    if (ok && act3.lvl33.isLevelComplete) {
+                        levelManager.notifyAction("rotate", 0);
+                        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                    }
+                    setupButtons();
+                }
+                break;
+            }
+            case 84: // Level 3.4: Predict no_rotation
+            {
+                if (isScreen("level_play") && isAct("act_3")) {
+                    char fb[160] = {0};
+                    act3.handleLevel34Prediction("no_rotation", levelManager.scoreSystem, fb, sizeof(fb));
+                    syncAVLVisuals();
+                    hud.setStatus(fb, "Prediction: no_rotation");
+                    if (act3.lvl34.isLevelComplete) {
+                        levelManager.notifyAction("insert", 0);
+                        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                    }
+                    setupButtons();
+                }
+                break;
+            }
+            case 85: // Level 3.4: Predict LL
+            {
+                if (isScreen("level_play") && isAct("act_3")) {
+                    char fb[160] = {0};
+                    act3.handleLevel34Prediction("ll", levelManager.scoreSystem, fb, sizeof(fb));
+                    syncAVLVisuals();
+                    hud.setStatus(fb, "Prediction: LL");
+                    if (act3.lvl34.isLevelComplete) {
+                        levelManager.notifyAction("insert", 0);
+                        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                    }
+                    setupButtons();
+                }
+                break;
+            }
+            case 86: // Level 3.4: Predict RR
+            {
+                if (isScreen("level_play") && isAct("act_3")) {
+                    char fb[160] = {0};
+                    act3.handleLevel34Prediction("rr", levelManager.scoreSystem, fb, sizeof(fb));
+                    syncAVLVisuals();
+                    hud.setStatus(fb, "Prediction: RR");
+                    if (act3.lvl34.isLevelComplete) {
+                        levelManager.notifyAction("insert", 0);
+                        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                    }
+                    setupButtons();
+                }
+                break;
+            }
+            case 87: // Level 3.4: Predict LR
+            {
+                if (isScreen("level_play") && isAct("act_3")) {
+                    char fb[160] = {0};
+                    act3.handleLevel34Prediction("lr", levelManager.scoreSystem, fb, sizeof(fb));
+                    syncAVLVisuals();
+                    hud.setStatus(fb, "Prediction: LR");
+                    if (act3.lvl34.isLevelComplete) {
+                        levelManager.notifyAction("insert", 0);
+                        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                    }
+                    setupButtons();
+                }
+                break;
+            }
+            case 88: // Level 3.4: Predict RL
+            {
+                if (isScreen("level_play") && isAct("act_3")) {
+                    char fb[160] = {0};
+                    act3.handleLevel34Prediction("rl", levelManager.scoreSystem, fb, sizeof(fb));
+                    syncAVLVisuals();
+                    hud.setStatus(fb, "Prediction: RL");
+                    if (act3.lvl34.isLevelComplete) {
+                        levelManager.notifyAction("insert", 0);
+                        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                    }
+                    setupButtons();
+                }
+                break;
+            }
+            case 89: // Level 3.5: Claim Treasure
+            {
+                if (isScreen("level_play") && isAct("act_3")) {
+                    char fb[160] = {0};
+                    bool ok = act3.handleLevel35Claim(levelManager.scoreSystem, fb, sizeof(fb));
+                    hud.setStatus(fb, "Order-Statistic Claim");
+                    if (ok && act3.lvl35.isLevelComplete) {
+                        levelManager.notifyAction("boss", 50);
+                        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                    }
+                    setupButtons();
+                }
+                break;
+            }
+            // ===================== ACT 4 CAMPAIGN BUTTON HANDLERS =====================
+            case 95: // Level 4.1: Confirm Swap
+            {
+                if (isScreen("level_play") && isAct("act_4")) {
+                    char fb[160] = {0};
+                    bool ok = act4.handleLevel41ConfirmSwap(levelManager.scoreSystem, fb, sizeof(fb));
+                    syncHeapVisuals();
+                    applyAct4InitialVisuals(1);
+                    hud.setStatus(fb, "Bottom-Up Heap Construction");
+                    if (ok && act4.lvl41.isLevelComplete) {
+                        levelManager.notifyAction("build_heap", 0);
+                        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                    }
+                    setupButtons();
+                }
+                break;
+            }
+            case 96: // Level 4.1: No Swap Needed
+            {
+                if (isScreen("level_play") && isAct("act_4")) {
+                    char fb[160] = {0};
+                    bool ok = act4.handleLevel41NoSwapNeeded(levelManager.scoreSystem, fb, sizeof(fb));
+                    applyAct4InitialVisuals(1);
+                    hud.setStatus(fb, "Inspect Parent & Children");
+                    if (ok && act4.lvl41.isLevelComplete) {
+                        levelManager.notifyAction("build_heap", 0);
+                        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                    }
+                    setupButtons();
+                }
+                break;
+            }
+            case 97: // Act 4: Cancel Selection
+            {
+                if (isScreen("level_play") && isAct("act_4")) {
+                    int lvlNum = levelManager.getCurrentLevel() ? levelManager.getCurrentLevel()->levelNumber : 1;
+                    act4.cancelSelection();
+                    applyAct4InitialVisuals(lvlNum);
+                    hud.setStatus("Selection cleared. Select the larger child or choose operation.");
+                    setupButtons();
+                }
+                break;
+            }
+            case 110: // Level 4.2: Confirm Swap (Round A)
+            {
+                if (isScreen("level_play") && isAct("act_4")) {
+                    char fb[160] = {0};
+                    bool ok = act4.handleLevel42ConfirmSwap(levelManager.scoreSystem, fb, sizeof(fb));
+                    syncHeapVisuals();
+                    applyAct4InitialVisuals(2);
+                    hud.setStatus(fb, "Priority Repair (Sift-Down)");
+                    if (ok && act4.lvl42.isLevelComplete) {
+                        levelManager.notifyAction("repair", 0);
+                        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                    }
+                    setupButtons();
+                }
+                break;
+            }
+            case 111: // Level 4.2: Move Up (Round B)
+            {
+                if (isScreen("level_play") && isAct("act_4")) {
+                    char fb[160] = {0};
+                    bool ok = act4.handleLevel42MoveUp(levelManager.scoreSystem, fb, sizeof(fb));
+                    syncHeapVisuals();
+                    applyAct4InitialVisuals(2);
+                    hud.setStatus(fb, "Priority Repair (Sift-Up)");
+                    if (ok && act4.lvl42.isLevelComplete) {
+                        levelManager.notifyAction("repair", 0);
+                        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                    }
+                    setupButtons();
+                }
+                break;
+            }
+            case 112: // Level 4.3: Extract Maximum
+            {
+                if (isScreen("level_play") && isAct("act_4")) {
+                    char fb[160] = {0};
+                    bool ok = act4.handleLevel43ExtractMax(levelManager.scoreSystem, fb, sizeof(fb));
+                    syncHeapVisuals();
+                    applyAct4InitialVisuals(3);
+                    hud.setStatus(fb, "Apex Extraction");
+                    if (ok && act4.lvl43.isLevelComplete) {
+                        levelManager.notifyAction("extract_max", 0);
+                        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                    }
+                    setupButtons();
+                }
+                break;
+            }
+            case 113: // Level 4.3: Confirm Swap (Heapify)
+            {
+                if (isScreen("level_play") && isAct("act_4")) {
+                    char fb[160] = {0};
+                    bool ok = act4.handleLevel43ConfirmSwap(levelManager.scoreSystem, fb, sizeof(fb));
+                    syncHeapVisuals();
+                    applyAct4InitialVisuals(3);
+                    hud.setStatus(fb, "Heapify Active Heap");
+                    if (ok && act4.lvl43.isLevelComplete) {
+                        levelManager.notifyAction("extract_max", 0);
+                        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                    }
+                    setupButtons();
+                }
+                break;
+            }
+            case 114: // Level 4.4: Extract Maximum (Race)
+            {
+                if (isScreen("level_play") && isAct("act_4")) {
+                    char fb[160] = {0};
+                    bool ok = act4.handleLevel44ExtractMax(levelManager.scoreSystem, fb, sizeof(fb));
+                    syncHeapVisuals();
+                    applyAct4InitialVisuals(4);
+                    hud.setStatus(fb, "Race Against Guards");
+                    if (ok && act4.lvl44.isLevelComplete) {
+                        levelManager.notifyAction("race", 0);
+                        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                    }
+                    setupButtons();
+                }
+                break;
+            }
+            case 115: // Level 4.4: Confirm Swap (Race)
+            {
+                if (isScreen("level_play") && isAct("act_4")) {
+                    char fb[160] = {0};
+                    bool ok = act4.handleLevel44ConfirmSwap(levelManager.scoreSystem, fb, sizeof(fb));
+                    syncHeapVisuals();
+                    applyAct4InitialVisuals(4);
+                    hud.setStatus(fb, "Race: Heapify Active Heap");
+                    if (ok && act4.lvl44.isLevelComplete) {
+                        levelManager.notifyAction("race", 0);
+                        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                    }
+                    setupButtons();
+                }
+                break;
+            }
+            case 116: // Level 4.5: Confirm Swap Phase A (Build)
+            {
+                if (isScreen("level_play") && isAct("act_4")) {
+                    char fb[160] = {0};
+                    bool ok = act4.handleLevel45ConfirmSwap(levelManager.scoreSystem, fb, sizeof(fb));
+                    syncHeapVisuals();
+                    applyAct4InitialVisuals(5);
+                    hud.setStatus(fb, "Phase A: Build Max Heap");
+                    setupButtons();
+                    (void)ok;
+                }
+                break;
+            }
+            case 117: // Level 4.5: No Swap Needed Phase A (Build)
+            {
+                if (isScreen("level_play") && isAct("act_4")) {
+                    char fb[160] = {0};
+                    bool ok = act4.handleLevel45NoSwapNeeded(levelManager.scoreSystem, fb, sizeof(fb));
+                    applyAct4InitialVisuals(5);
+                    hud.setStatus(fb, "Phase A: Verify Parent");
+                    setupButtons();
+                    (void)ok;
+                }
+                break;
+            }
+            case 118: // Level 4.5: Extract Maximum Phase B (Sort)
+            {
+                if (isScreen("level_play") && isAct("act_4")) {
+                    char fb[160] = {0};
+                    bool ok = act4.handleLevel45ExtractMax(levelManager.scoreSystem, fb, sizeof(fb));
+                    syncHeapVisuals();
+                    applyAct4InitialVisuals(5);
+                    hud.setStatus(fb, "Phase B: Extract Max");
+                    if (ok && act4.lvl45.isLevelComplete) {
+                        levelManager.notifyAction("boss", 0);
+                        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                    }
+                    setupButtons();
+                }
+                break;
+            }
+            case 119: // Level 4.5: Confirm Swap Phase B (Sort)
+            {
+                if (isScreen("level_play") && isAct("act_4")) {
+                    char fb[160] = {0};
+                    bool ok = act4.handleLevel45ConfirmSwap(levelManager.scoreSystem, fb, sizeof(fb));
+                    syncHeapVisuals();
+                    applyAct4InitialVisuals(5);
+                    hud.setStatus(fb, "Phase B: Sift Down Root");
+                    if (ok && act4.lvl45.isLevelComplete) {
+                        levelManager.notifyAction("boss", 0);
+                        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                    }
+                    setupButtons();
+                }
+                break;
+            }
+            // ===========================================================================
+
             case 15: handleAVLKthAction(); break;
             case 16: handleAVLRankAction(); break;
 
@@ -2256,6 +2965,52 @@ public:
                             hud.setStatus(fb, "Stash Loot: Insertion Position");
                             clickedButton = true;
                             break;
+                        }
+                    }
+                }
+
+                // Heap array cell clicks in Act 4
+                if (!clickedButton && isAct("act_4") && (isScreen("level_play") || isScreen("sandbox"))) {
+                    float cellW = 54.0f;
+                    float cellH = 44.0f;
+                    float gap = 8.0f;
+                    int hSize = heap.getSize();
+                    float totalW = hSize * cellW + (hSize - 1) * gap;
+                    float startX = 640.0f - totalW * 0.5f;
+                    if (startX < 30.0f) startX = 30.0f;
+                    float startY = 595.0f + 6.0f;
+
+                    if (my >= startY && my <= startY + cellH && mx >= startX && mx <= startX + totalW) {
+                        int cellIdx = static_cast<int>((mx - startX) / (cellW + gap));
+                        if (cellIdx >= 0 && cellIdx < hSize) {
+                            float cellLeft = startX + cellIdx * (cellW + gap);
+                            if (mx >= cellLeft && mx <= cellLeft + cellW) {
+                                selectedNodeIndex = cellIdx;
+                                if (isScreen("level_play")) {
+                                    int lvlNum = levelManager.getCurrentLevel() ? levelManager.getCurrentLevel()->levelNumber : 0;
+                                    char fb[160] = {0};
+                                    bool ok = false;
+                                    if (lvlNum == 1) {
+                                        ok = act4.handleLevel41NodeClick(cellIdx, levelManager.scoreSystem, fb, sizeof(fb));
+                                    } else if (lvlNum == 2) {
+                                        ok = act4.handleLevel42NodeClick(cellIdx, levelManager.scoreSystem, fb, sizeof(fb));
+                                    } else if (lvlNum == 3) {
+                                        ok = act4.handleLevel43NodeClick(cellIdx, levelManager.scoreSystem, fb, sizeof(fb));
+                                    } else if (lvlNum == 4) {
+                                        ok = act4.handleLevel44NodeClick(cellIdx, levelManager.scoreSystem, fb, sizeof(fb));
+                                    } else if (lvlNum == 5) {
+                                        ok = act4.handleLevel45NodeClick(cellIdx, levelManager.scoreSystem, fb, sizeof(fb));
+                                    }
+                                    applyAct4InitialVisuals(lvlNum);
+                                    if (!ok && levelManager.scoreSystem.isAlarmBreached()) {
+                                        levelManager.notifyAction("fail", 0);
+                                        setupButtons();
+                                    }
+                                    hud.setStatus(fb, "Act 4: Max Heap");
+                                    setupButtons();
+                                    clickedButton = true;
+                                }
+                            }
                         }
                     }
                 }
@@ -2479,6 +3234,50 @@ public:
                                 hud.setStatus(buf, "");
                             }
                         } else {
+                            char fb[160] = {0};
+                            if (isAct("act_3") && isScreen("level_play")) {
+                                int lvlNum = levelManager.getCurrentLevel() ? levelManager.getCurrentLevel()->levelNumber : 0;
+                                if (lvlNum == 1) {
+                                    // Level 3.1: click unbalanced nodes
+                                    bool ok = act3.handleLevel31NodeClick(val, levelManager.scoreSystem, fb, sizeof(fb));
+                                    if (ok) {
+                                        layout.nodes[clickedNode].setState("highlighted");
+                                        if (act3.lvl31.isLevelComplete) {
+                                            levelManager.notifyAction("search", 0);
+                                            SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                                            setupButtons();
+                                        }
+                                    } else {
+                                        layout.nodes[clickedNode].setState("inactive");
+                                        if (levelManager.scoreSystem.isAlarmBreached()) {
+                                            levelManager.notifyAction("fail", 0);
+                                            setupButtons();
+                                        }
+                                    }
+                                    hud.setStatus(fb, "Find all unbalanced nodes (|BF| > 1)");
+                                } else if (lvlNum == 5 && act3.lvl35.phase == 1) {
+                                    // Level 3.5 Phase B: follow order-statistic search path
+                                    bool ok = act3.handleLevel35SearchClick(val, levelManager.scoreSystem, fb, sizeof(fb));
+                                    if (ok) {
+                                        layout.nodes[clickedNode].setState("highlighted");
+                                        setupButtons();
+                                    } else {
+                                        layout.nodes[clickedNode].setState("inactive");
+                                        if (levelManager.scoreSystem.isAlarmBreached()) {
+                                            levelManager.notifyAction("fail", 0);
+                                            setupButtons();
+                                        }
+                                    }
+                                    hud.setStatus(fb, "Phase B: Follow order-statistic path");
+                                } else {
+                                    char buf[128];
+                                    snprintf(buf, sizeof(buf), "SELECTED AVL POD: Key %d (BF: %+d, SubtreeSize: %d)",
+                                             layout.nodes[clickedNode].key,
+                                             layout.nodes[clickedNode].balanceFactor,
+                                             layout.nodes[clickedNode].subtreeSize);
+                                    hud.setStatus(buf, "Badges show balance factor and order-statistic subtree size.");
+                                }
+                            } else {
                             char buf[96];
                             if (isAct("act_3")) {
                                 snprintf(buf, sizeof(buf), "SELECTED AVL POD: Key %d (BF: %+d, SubtreeSize: %d)",
@@ -2487,13 +3286,38 @@ public:
                                          layout.nodes[clickedNode].subtreeSize);
                                 hud.setStatus(buf, "Badges show balance factor and order-statistic subtree size.");
                             } else if (isAct("act_4")) {
-                                snprintf(buf, sizeof(buf), "SELECTED HEAP POD: Value %d at Tree/Array Index [%d].",
-                                         layout.nodes[clickedNode].key, clickedNode);
-                                hud.setStatus(buf, "Highlighted corresponding cell in 1D memory buffer below.");
+                                if (isScreen("level_play")) {
+                                    int lvlNum = levelManager.getCurrentLevel() ? levelManager.getCurrentLevel()->levelNumber : 0;
+                                    char fb[160] = {0};
+                                    bool ok = false;
+                                    if (lvlNum == 1) {
+                                        ok = act4.handleLevel41NodeClick(clickedNode, levelManager.scoreSystem, fb, sizeof(fb));
+                                    } else if (lvlNum == 2) {
+                                        ok = act4.handleLevel42NodeClick(clickedNode, levelManager.scoreSystem, fb, sizeof(fb));
+                                    } else if (lvlNum == 3) {
+                                        ok = act4.handleLevel43NodeClick(clickedNode, levelManager.scoreSystem, fb, sizeof(fb));
+                                    } else if (lvlNum == 4) {
+                                        ok = act4.handleLevel44NodeClick(clickedNode, levelManager.scoreSystem, fb, sizeof(fb));
+                                    } else if (lvlNum == 5) {
+                                        ok = act4.handleLevel45NodeClick(clickedNode, levelManager.scoreSystem, fb, sizeof(fb));
+                                    }
+                                    applyAct4InitialVisuals(lvlNum);
+                                    if (!ok && levelManager.scoreSystem.isAlarmBreached()) {
+                                        levelManager.notifyAction("fail", 0);
+                                        setupButtons();
+                                    }
+                                    hud.setStatus(fb, "Act 4: Max Heap");
+                                    setupButtons();
+                                } else {
+                                    snprintf(buf, sizeof(buf), "SELECTED HEAP POD: Value %d at Tree/Array Index [%d].",
+                                             layout.nodes[clickedNode].key, clickedNode);
+                                    hud.setStatus(buf, "Highlighted corresponding cell in 1D memory buffer below.");
+                                }
                             } else {
                                 snprintf(buf, sizeof(buf), "SELECTED POD: Key %d at index %d.", layout.nodes[clickedNode].key, clickedNode);
                                 hud.setStatus(buf, "Click 'Search', 'Delete', or traversals to operate on this pod.");
                             }
+                            } // end else (not act_3 level_play)
                         }
                     } else {
                         selectedNodeIndex = -1;
