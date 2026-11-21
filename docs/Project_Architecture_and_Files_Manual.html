@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Vault Heist: The Living Vault — System Architecture & Codebase Technical Manual</title>
+<style>
+  @page {
+    size: A4;
+    margin: 18mm 16mm 18mm 16mm;
+    @bottom-center {
+      content: "Page " counter(page) " of " counter(pages);
+      font-size: 9pt;
+      color: #64748b;
+    }
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.55;
+    color: #1e293b;
+    font-size: 10.5pt;
+    margin: 0;
+    padding: 0;
+  }
+  .header-block {
+    border-bottom: 3px solid #0f766e;
+    padding-bottom: 12px;
+    margin-bottom: 24px;
+  }
+  h1 {
+    color: #0f766e;
+    font-size: 20pt;
+    margin: 0 0 6px 0;
+    font-weight: 700;
+  }
+  .subtitle {
+    color: #475569;
+    font-size: 11pt;
+    font-weight: 500;
+    margin: 0;
+  }
+  .meta-tag {
+    display: inline-block;
+    background: #f1f5f9;
+    color: #334155;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 9pt;
+    margin-top: 8px;
+    font-weight: 600;
+  }
+  h2 {
+    color: #0f172a;
+    font-size: 13.5pt;
+    margin-top: 26px;
+    margin-bottom: 10px;
+    border-bottom: 1px solid #e2e8f0;
+    padding-bottom: 5px;
+    page-break-after: avoid;
+  }
+  h3 {
+    color: #0d9488;
+    font-size: 11pt;
+    margin-top: 18px;
+    margin-bottom: 6px;
+    page-break-after: avoid;
+  }
+  p {
+    margin-top: 0;
+    margin-bottom: 10px;
+    text-align: justify;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 20px 0;
+    font-size: 9pt;
+    page-break-inside: avoid;
+  }
+  th, td {
+    border: 1px solid #cbd5e1;
+    padding: 7px 9px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th {
+    background-color: #f8fafc;
+    color: #0f172a;
+    font-weight: 600;
+  }
+  tr:nth-child(even) td {
+    background-color: #fdfdfd;
+  }
+  code {
+    background-color: #f1f5f9;
+    color: #b91c1c;
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 8.5pt;
+  }
+  .callout {
+    background-color: #f0fdf4;
+    border-left: 4px solid #16a34a;
+    padding: 10px 14px;
+    margin: 14px 0;
+    border-radius: 0 4px 4px 0;
+    font-size: 10pt;
+  }
+  .callout-blue {
+    background-color: #f0f9ff;
+    border-left: 4px solid #0284c7;
+    padding: 10px 14px;
+    margin: 14px 0;
+    border-radius: 0 4px 4px 0;
+    font-size: 10pt;
+  }
+  .callout-title {
+    font-weight: 700;
+    margin-bottom: 4px;
+    color: #0369a1;
+  }
+  ul, ol {
+    margin-top: 4px;
+    margin-bottom: 10px;
+    padding-left: 22px;
+  }
+  li {
+    margin-bottom: 4px;
+  }
+  .page-break {
+    page-break-before: always;
+  }
+  .footer-note {
+    font-size: 8pt;
+    color: #94a3b8;
+    text-align: center;
+    margin-top: 30px;
+    border-top: 1px solid #e2e8f0;
+    padding-top: 8px;
+  }
+</style>
+</head>
+<body>
+
+<div class="header-block">
+  <h1>Vault Heist: The Living Vault</h1>
+  <div class="subtitle">Complete Technical Manual: System Architecture, File Hierarchy, Header & Implementation Roles, and JSON Specification</div>
+  <div class="meta-tag">C++17 | SFML 2.6.2 | MVC Pattern | Data Structures & Algorithms</div>
+</div>
+
+<div class="callout-blue">
+  <div class="callout-title">Project Summary</div>
+  <em>Vault Heist: The Living Vault</em> is a high-performance educational gamified experience designed to teach fundamental and advanced hierarchical data structures. The player takes the role of an elite cyber-infiltrator navigating an organic bio-neural vault. The game features 4 distinct Acts:
+  <strong>Act 1: The Blueprint Wing</strong> (General Binary Trees), <strong>Act 2: The Logic Core</strong> (Binary Search Trees), <strong>Act 3: The Balancing Vault</strong> (Self-Balancing AVL Trees), and <strong>Act 4: The Priority Core</strong> (Binary Max Heaps). Progression requires executing exact algorithmic invariants while staying within strict alarm step budgets.
+</div>
+
+<h2>1. Architectural Pattern & Arrangement</h2>
+<p>
+The project adheres strictly to the <strong>Model-View-Controller (MVC)</strong> architectural pattern. This design guarantees decoupling between underlying tree nodes, gameplay progression rules, and graphical rendering pipelines:
+</p>
+<ul>
+  <li><strong>Model / Logic (<code>game/logic/</code>):</strong> Encapsulates pure data structure algorithms. Implements raw pointer-based dynamic trees (Binary Tree, BST, AVL, Max Heap), node rotation formulas, predecessor/successor replacements, and decoupled operation logging. It maintains zero dependencies on SFML or GUI code.</li>
+  <li><strong>Controller (<code>game/controller/</code> & <code>game/scoring/</code>):</strong> Manages game state machines, level parameters, player action validation (verifying whether clicked nodes match binary search or tree traversal paths), scoring, star calculation, and undo snapshots.</li>
+  <li><strong>View (<code>game/view/</code>):</strong> Owns SFML window rendering, layout engines that compute hierarchical 2D node coordinates, procedural bioluminescent node depictions, glowing edge tendrils, animations, buttons, input fields, and HUD alarm bars.</li>
+</ul>
+
+<h2>2. Complete Project Files & Roles Directory</h2>
+
+<h3>2.1 View Layer (<code>game/view/</code>)</h3>
+<table>
+  <thead>
+    <tr>
+      <th style="width: 25%;">File Name</th>
+      <th style="width: 15%;">Type</th>
+      <th style="width: 60%;">Role, Responsibilities & Contributions</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>GameScreen.h</code></td>
+      <td>Header / Coordinator</td>
+      <td>The central visual orchestrator of the entire game. Contains the main screen state machine (<code>menu</code>, <code>campaign_map</code>, <code>level_play</code>, <code>sandbox</code>, <code>endless</code>). Instantiates all trees, routes mouse clicks on tree nodes to the controller, updates camera panning/zoom views, and renders the active layout every frame.</td>
+    </tr>
+    <tr>
+      <td><code>UIComponents.h</code></td>
+      <td>Header / UI Library</td>
+      <td>Provides reusable graphical interface primitives: <code>BioButton</code> (interactive buttons with hover/press states), <code>BioInputBox</code> (text input for arbitrary keys), and <code>HUD</code> (displays alarm meter gauge, current score, level status messages, and earned stars).</td>
+    </tr>
+    <tr>
+      <td><code>TreeLayout.h</code></td>
+      <td>Header / Math</td>
+      <td>Pure visual coordinate layout engine. Recursively traverses any tree hierarchy to calculate tidy 2D positions (<code>x, y</code>) for all nodes, computing horizontal sub-tree spacing and vertical depth tiers to prevent overlapping branches.</td>
+    </tr>
+    <tr>
+      <td><code>TreeRenderer.h</code></td>
+      <td>Header / SFML Renderer</td>
+      <td>Renders organic bio-mechanical pods, connecting tendrils/filaments, glowing node halos, and centered text labels onto the SFML RenderWindow using hardware acceleration.</td>
+    </tr>
+    <tr>
+      <td><code>TreeAnimator.h</code> & <code>EventAnimationController.h</code></td>
+      <td>Header / Animation</td>
+      <td>Translates data structure events (e.g. node comparisons, rotations, element swaps) into smooth visual animations, pulse highlights, and sequential traversal effects.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="page-break"></div>
+
+<h3>2.2 Controller Layer (<code>game/controller/</code> & <code>game/scoring/</code>)</h3>
+<table>
+  <thead>
+    <tr>
+      <th style="width: 28%;">File Name</th>
+      <th style="width: 14%;">Type</th>
+      <th style="width: 58%;">Role, Responsibilities & Contributions</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>LevelDef.h</code></td>
+      <td>Header</td>
+      <td>Defines the core level definition struct (<code>LevelDef</code>): stores level ID, act ID, title, required action (e.g. <code>search</code>, <code>inorder</code>, <code>rotate</code>), optimal step budget, and hint text.</td>
+    </tr>
+    <tr>
+      <td><code>LevelManager.h</code> / <code>.cpp</code></td>
+      <td>Header + C++ Source</td>
+      <td>Master progression controller. Manages 20 campaign levels across 4 acts. Dispatches player actions via <code>notifyAction()</code>, tracks victory/defeat states, and unlocks subsequent stages upon star awards.</td>
+    </tr>
+    <tr>
+      <td><code>UniversalActController.h</code> / <code>.cpp</code></td>
+      <td>Header + C++ Source</td>
+      <td>Unified algorithmic judge for all Acts. Evaluates whether a player's node interaction is valid (e.g., verifying if selecting a BST child follows key comparison logic). Computes alarm step penalties for wrong directions and triggers victory when objectives are satisfied.</td>
+    </tr>
+    <tr>
+      <td><code>Act1State.h</code> / <code>.cpp</code></td>
+      <td>Header + C++ Source</td>
+      <td>Act 1 specific controller. Handles binary tree traversal verification (Preorder, Inorder, Postorder), tree reconstruction validation, and Lowest Common Ancestor (LCA) queries.</td>
+    </tr>
+    <tr>
+      <td><code>Act2State.h</code> / <code>.cpp</code></td>
+      <td>Header + C++ Source</td>
+      <td>Act 2 specific controller. Manages step-by-step BST search paths, range queries <code>[L, R]</code>, node insertions, and predecessor/successor node deletions.</td>
+    </tr>
+    <tr>
+      <td><code>Act3State.h</code> / <code>.cpp</code></td>
+      <td>Header + C++ Source</td>
+      <td>Act 3 specific controller. Manages self-balancing AVL trees, detecting balance factor violations and evaluating required rotation types (LL, RR, LR, RL).</td>
+    </tr>
+    <tr>
+      <td><code>Act4State.h</code> / <code>.cpp</code></td>
+      <td>Header + C++ Source</td>
+      <td>Act 4 specific controller. Manages Max Heap operations: sift-up insertion steps, root element extraction, and array-to-heap heapify stages.</td>
+    </tr>
+    <tr>
+      <td><code>ScoreSystem.h</code> / <code>.cpp</code></td>
+      <td>Header + C++ Source</td>
+      <td>Tracks current score, counts alarm steps taken versus the optimal step threshold, applies hint penalties, and calculates 1, 2, or 3-star ratings upon level completion.</td>
+    </tr>
+    <tr>
+      <td><code>UndoManager.h</code></td>
+      <td>Header</td>
+      <td>State snapshot stack. Stores deep copies of node keys and alarm counter values, allowing players to undo erroneous moves without corrupting heap pointers.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>2.3 Logic & Data Structure Layer (<code>game/logic/</code>)</h3>
+<table>
+  <thead>
+    <tr>
+      <th style="width: 25%;">File Name</th>
+      <th style="width: 15%;">Type</th>
+      <th style="width: 60%;">Role, Responsibilities & Contributions</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>BinaryTree.h</code> / <code>.cpp</code></td>
+      <td>Header + C++ Source</td>
+      <td>General Binary Tree implementation. Provides recursive in-order, pre-order, post-order, and level-order traversals, height calculation, diameter computation, and LCA algorithms.</td>
+    </tr>
+    <tr>
+      <td><code>bst.h</code> / <code>bst.cpp</code></td>
+      <td>Header + C++ Source</td>
+      <td>Binary Search Tree implementation. Enforces BST ordering invariants, supports node search, in-order predecessor/successor deletion, and range queries.</td>
+    </tr>
+    <tr>
+      <td><code>avl_tree.h</code> / <code>avl_tree.cpp</code></td>
+      <td>Header + C++ Source</td>
+      <td>Self-Balancing AVL Tree. Calculates node heights, updates balance factors, and performs Single (Left/Right) and Double (Left-Right/Right-Left) rotations.</td>
+    </tr>
+    <tr>
+      <td><code>max_heap.h</code> / <code>max_heap.cpp</code></td>
+      <td>Header + C++ Source</td>
+      <td>Dynamic array-backed Binary Max Heap. Implements <code>siftUp()</code>, <code>siftDown()</code>, <code>extractMax()</code>, and Floyd's $O(N)$ <code>buildMaxHeap()</code> algorithm.</td>
+    </tr>
+    <tr>
+      <td><code>event.h</code> / <code>event.cpp</code></td>
+      <td>Header + C++ Source</td>
+      <td>Decoupled event recorder (<code>EventLog</code>). Whenever tree operations occur (VISIT, ROTATE, SWAP, INSERT, DELETE), event structs are queued for UI animations and alarm step auditing.</td>
+    </tr>
+    <tr>
+      <td><code>SaveManager.h</code> / <code>.cpp</code></td>
+      <td>Header + C++ Source</td>
+      <td>Binary persistent storage manager. Serializes and deserializes campaign progress, unlocked levels, and high scores to and from <code>levels/savegame.dat</code>.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="page-break"></div>
+
+<h3>2.4 Application Entry Point & Automation</h3>
+<table>
+  <thead>
+    <tr>
+      <th style="width: 25%;">File Name</th>
+      <th style="width: 15%;">Type</th>
+      <th style="width: 60%;">Role & Responsibilities</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>main.cpp</code></td>
+      <td>C++ Entry Point</td>
+      <td>Initializes the SFML <code>RenderWindow</code> (1280x720, 60 FPS), sets window icon/title, loads assets, runs the core event loop, and delegates frame updates to <code>GameScreen</code>.</td>
+    </tr>
+    <tr>
+      <td><code>build.bat</code></td>
+      <td>Batch Script</td>
+      <td>Compiles all C++ modules with MinGW GCC 64-bit using C++17, linking 64-bit SFML static/shared libraries into <code>main.exe</code>.</td>
+    </tr>
+    <tr>
+      <td><code>run.bat</code></td>
+      <td>Batch Script</td>
+      <td>Sets up environment PATH variables, calls <code>build.bat</code> to verify latest sources, and launches <code>main.exe</code>.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>3. Role of JSON Files in the Architecture</h2>
+<p>
+The project includes a suite of structured JSON files under the <code>levels/</code> folder (e.g., <code>campaign_levels.json</code>, <code>act1_levels.json</code>, <code>act2_levels.json</code>, <code>act3_levels.json</code>, and <code>act4_levels.json</code>).
+These files play three pivotal architectural roles:
+</p>
+<ol>
+  <li><strong>Data-Driven Level Design (Separation of Content and Code):</strong>
+    Instead of hardcoding puzzles, target numbers, and dialogues inside C++ source code, level definitions are stored as declarative data. Game designers can tweak balance, optimal step thresholds, and objectives without recompiling the project.
+  </li>
+  <li><strong>Standardized Level Schema:</strong>
+    Every level entry conforms to a structured specification:
+    <ul>
+      <li><code>act</code> & <code>level</code>: Numeric identifiers routing to the campaign map.</li>
+      <li><code>title</code> & <code>objective</code>: Explanatory text rendered directly in the bottom HUD banner.</li>
+      <li><code>structureType</code>: Tells the engine which data structure to initialize (<code>"tree"</code>, <code>"bst"</code>, <code>"avl"</code>, <code>"heap"</code>).</li>
+      <li><code>requiredAction</code>: Informs <code>UniversalActController</code> which invariant to test (e.g., <code>"search"</code>, <code>"inorder"</code>, <code>"reconstruct"</code>, <code>"range_query"</code>, <code>"delete"</code>, <code>"rotate"</code>).</li>
+      <li><code>targetValue</code>: The algorithmic target key to locate, balance, or remove.</li>
+      <li><code>optimalSteps</code>: The baseline par value used by <code>ScoreSystem</code> to award 1, 2, or 3 stars based on alarm efficiency.</li>
+      <li><code>hint</code>: Contextual algorithmic hints displayed when the player requests assistance.</li>
+    </ul>
+  </li>
+  <li><strong>Extensibility & Custom Campaigns:</strong>
+    New levels, custom user heists, or tournament scenarios can be introduced simply by appending entries to the JSON file.
+  </li>
+</ol>
+
+<div class="callout">
+  <div class="callout-title">Architectural Flow Summary</div>
+  When a user clicks on a node on the screen:
+  <ol>
+    <li><code>GameScreen</code> captures the SFML click coordinates and queries <code>TreeLayout</code> to find the selected node key.</li>
+    <li><code>GameScreen</code> invokes <code>LevelManager::notifyAction("search", selectedKey)</code>.</li>
+    <li><code>LevelManager</code> passes the request to <code>UniversalActController</code>, which checks the move against the data structure invariants in <code>game/logic/</code>.</li>
+    <li>If correct, the alarm meter increments normally; if incorrect, a penalty is recorded.</li>
+    <li><code>ScoreSystem</code> recalculates remaining alarm budget. Upon target completion, victory is triggered and <code>SaveManager</code> writes updated stars to disk.</li>
+  </ol>
+</div>
+
+<div class="footer-note">
+  Vault Heist: The Living Vault Technical Documentation — Generated for System Architecture Review.
+</div>
+
+</body>
+</html>
