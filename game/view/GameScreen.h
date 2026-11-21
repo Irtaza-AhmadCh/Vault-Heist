@@ -151,7 +151,7 @@ public:
     }
 
     void loadEndlessScores() {
-        FILE* f = fopen("levels/endless_leaderboard.dat", "r");
+        FILE* f = fopen("levels/endless_leaderboard.txt", "r");
         endlessScoreCount = 0;
         if (!f) return;
         int score = 0;
@@ -169,14 +169,14 @@ public:
         for (int i = 0; i < n; ++i) for (int j = i + 1; j < n; ++j)
             if (scores[j] > scores[i]) { int t = scores[i]; scores[i] = scores[j]; scores[j] = t; }
         endlessScoreCount = n < 10 ? n : 10;
-        FILE* f = fopen("levels/endless_leaderboard.dat", "w");
+        FILE* f = fopen("levels/endless_leaderboard.txt", "w");
         for (int i = 0; i < endlessScoreCount; ++i) { endlessScores[i] = scores[i]; if (f) fprintf(f, "%d\n", scores[i]); }
         if (f) fclose(f);
     }
 
     bool hasEndlessSave() {
         EndlessSaveData data;
-        return SaveManager::loadEndless("levels/endless_save.dat", data) && data.keyCount > 0 && data.keyCount <= 32;
+        return SaveManager::loadEndless("levels/endless_save.txt", data) && data.keyCount > 0 && data.keyCount <= 32;
     }
 
     void saveEndlessProgress() {
@@ -185,7 +185,7 @@ public:
         data.keyCount = avl.getRootSize();
         if (data.keyCount > 32) data.keyCount = 32;
         for (int i = 0; i < data.keyCount; ++i) data.keys[i] = avl.kth(i + 1);
-        SaveManager::saveEndless("levels/endless_save.dat", data);
+        SaveManager::saveEndless("levels/endless_save.txt", data);
     }
 
     AVLNode* findEndlessImbalance(AVLNode* node) {
@@ -244,8 +244,13 @@ public:
         srand(static_cast<unsigned>(time(nullptr)));
         bool ok = renderer.loadAssets(assetsDir);
 
+        char campaignError[192];
+        if (!levelManager.loadCampaign("levels/campaign_levels.json", campaignError, sizeof(campaignError))) {
+            std::cout << "Campaign load failed: " << campaignError << std::endl;
+        }
+
         // Load persistent savegame
-        SaveManager::loadProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+        SaveManager::loadProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
 
         setupDefaultAct1Tree();
         setupButtons();
@@ -344,7 +349,7 @@ public:
 
         undoManager.clear();
 
-        if (lvl->actNumber == 1) {
+        if (strcmp(lvl->structureType, "tree") == 0) {
             setAct("act_1");
             act1.initLevel(lvl->levelNumber, &binTree, levelManager.scoreSystem);
             if (lvl->levelNumber == 2) {
@@ -374,7 +379,7 @@ public:
                 hud.setStatus("BILATERAL REFLECTION: Click pods bottom-up to swap their left and right children.",
                               "Children must be mirrored before their parent pod (or use Auto Mirror).");
             }
-        } else if (lvl->actNumber == 2) {
+        } else if (strcmp(lvl->structureType, "bst") == 0) {
             setAct("act_2");
             eventController.clear();
             selectedNodeIndex = -1;
@@ -388,7 +393,7 @@ public:
             else if (lvl->levelNumber == 3) hud.setStatus(act2.lvl23.statusMsg);
             else if (lvl->levelNumber == 4) hud.setStatus(act2.lvl24.statusMsg);
             else if (lvl->levelNumber == 5) hud.setStatus(act2.lvl25.statusMsg);
-        } else if (lvl->actNumber == 3) {
+        } else if (strcmp(lvl->structureType, "avl") == 0) {
             setAct("act_3");
             eventController.clear();
             selectedNodeIndex = -1;
@@ -400,7 +405,7 @@ public:
             else if (lvl->levelNumber == 3) hud.setStatus(act3.lvl33.statusMsg);
             else if (lvl->levelNumber == 4) hud.setStatus(act3.lvl34.statusMsg);
             else if (lvl->levelNumber == 5) hud.setStatus(act3.lvl35.statusMsg);
-        } else if (lvl->actNumber == 4) {
+        } else if (strcmp(lvl->structureType, "heap") == 0) {
             setAct("act_4");
             eventController.clear();
             selectedNodeIndex = -1;
@@ -479,17 +484,39 @@ public:
             tx += tw + tgap;
             buttons[buttonCount++] = BioButton(tx, ty, tw, th, "Act 4: Heap Fortress", 314, campaignSelectedAct == 4);
 
-            // 5 Level Cards for the selected Act
-            float lx = 140.0f;
-            float ly = 230.0f;
+            // Dynamic Level Cards for the selected Act
+            int actLevelIndices[32];
+            int actLevelCount = 0;
+            for (int i = 0; i < levelManager.levelCount && actLevelCount < 32; i++) {
+                if (levelManager.levels[i].actNumber == campaignSelectedAct) {
+                    actLevelIndices[actLevelCount++] = i;
+                }
+            }
+
+            int visibleLevels = actLevelCount > 8 ? 8 : actLevelCount;
             float lw = 190.0f;
             float lh = 170.0f;
             float lgap = 15.0f;
+            float startY = 230.0f;
 
-            int startLvl = (campaignSelectedAct - 1) * 5;
-            for (int i = 0; i < 5; i++) {
-                int lvlIdx = startLvl + i;
+            for (int i = 0; i < visibleLevels && buttonCount < MAX_BUTTONS; i++) {
+                int lvlIdx = actLevelIndices[i];
                 const LevelDef& ldef = levelManager.levels[lvlIdx];
+
+                float cx = 0.0f;
+                float cy = startY;
+                if (visibleLevels <= 5) {
+                    float totalW = visibleLevels * lw + (visibleLevels - 1) * lgap;
+                    float startX = 640.0f - totalW * 0.5f;
+                    cx = startX + i * (lw + lgap);
+                } else {
+                    int row = i / 4;
+                    int col = i % 4;
+                    float totalW = 4 * lw + 3 * lgap;
+                    float startX = 640.0f - totalW * 0.5f;
+                    cx = startX + col * (lw + lgap);
+                    cy = 210.0f + row * (lh + 20.0f);
+                }
 
                 char label[48];
                 if (ldef.isUnlocked) {
@@ -501,7 +528,7 @@ public:
                     snprintf(label, sizeof(label), "Lvl %d.%d [LOCKED]", ldef.actNumber, ldef.levelNumber);
                 }
 
-                buttons[buttonCount++] = BioButton(lx + i * (lw + lgap), ly, lw, 44.0f, label, 301 + i, ldef.isCompleted);
+                buttons[buttonCount++] = BioButton(cx, cy, lw, 44.0f, label, 301 + i, ldef.isCompleted);
             }
 
             // Back to Menu Button
@@ -1748,7 +1775,7 @@ public:
         }
 
         if (isScreen("level_play") && strcmp(levelManager.playState, "victory") == 0) {
-            SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+            SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
             setupButtons();
         }
     }
@@ -1844,7 +1871,7 @@ public:
         }
 
         if (isScreen("level_play") && strcmp(levelManager.playState, "victory") == 0) {
-            SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+            SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
             setupButtons();
         }
     }
@@ -1918,7 +1945,7 @@ public:
         }
 
         if (isScreen("level_play") && strcmp(levelManager.playState, "victory") == 0) {
-            SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+            SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
             setupButtons();
         }
     }
@@ -1951,7 +1978,7 @@ public:
         hud.setStatus(buf, "Subtrees outside range dimmed to inactive purple membranes.");
 
         if (isScreen("level_play") && strcmp(levelManager.playState, "victory") == 0) {
-            SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+            SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
             setupButtons();
         }
     }
@@ -1985,7 +2012,7 @@ public:
         hud.setStatus(buf, "Located directly via subtreeSize badges without full traversal.");
 
         if (isScreen("level_play") && strcmp(levelManager.playState, "victory") == 0) {
-            SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+            SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
             setupButtons();
         }
     }
@@ -2015,7 +2042,7 @@ public:
         hud.setStatus(buf, "Computed using augmented subtree size in O(log N).");
 
         if (isScreen("level_play") && strcmp(levelManager.playState, "victory") == 0) {
-            SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+            SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
             setupButtons();
         }
     }
@@ -2074,7 +2101,7 @@ public:
         eventController.start();
 
         if (isScreen("level_play") && strcmp(levelManager.playState, "victory") == 0) {
-            SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+            SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
             setupButtons();
         }
     }
@@ -2093,7 +2120,7 @@ public:
                       "Bilateral reflection applied across the central trunk.");
 
         if (isScreen("level_play") && strcmp(levelManager.playState, "victory") == 0) {
-            SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+            SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
             setupButtons();
         }
     }
@@ -2119,7 +2146,7 @@ public:
         hud.setStatus(buf, "Longest boundary branches illuminated.");
 
         if (isScreen("level_play") && strcmp(levelManager.playState, "victory") == 0) {
-            SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+            SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
             setupButtons();
         }
     }
@@ -2156,7 +2183,7 @@ public:
         hud.setStatus(buf, "LCA pod glows golden target; endpoints glow electric cyan.");
 
         if (isScreen("level_play") && strcmp(levelManager.playState, "victory") == 0) {
-            SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+            SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
             setupButtons();
         }
     }
@@ -2190,7 +2217,7 @@ public:
                       "Original neural blueprint regenerated perfectly.");
 
         if (isScreen("level_play") && strcmp(levelManager.playState, "victory") == 0) {
-            SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+            SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
             setupButtons();
         }
     }
@@ -2219,7 +2246,7 @@ public:
         hud.setStatus(buf, "Root severed, last element promoted and sifted down.");
 
         if (isScreen("level_play") && strcmp(levelManager.playState, "victory") == 0) {
-            SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+            SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
             setupButtons();
         }
     }
@@ -2245,7 +2272,7 @@ public:
                       "Internal parent nodes sifted down from lowest levels to root.");
 
         if (isScreen("level_play") && strcmp(levelManager.playState, "victory") == 0) {
-            SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+            SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
             setupButtons();
         }
     }
@@ -2273,7 +2300,7 @@ public:
                       "Synchronized 1D array displays extracted elements in final sorted order.");
 
         if (isScreen("level_play") && strcmp(levelManager.playState, "victory") == 0) {
-            SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+            SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
             setupButtons();
         }
     }
@@ -2319,7 +2346,7 @@ public:
         hud.setStatus("SIFT DOWN [0]: Root pod sifted down to maintain max-heap invariant.");
 
         if (isScreen("level_play") && strcmp(levelManager.playState, "victory") == 0) {
-            SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+            SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
             setupButtons();
         }
     }
@@ -2345,7 +2372,7 @@ public:
         hud.setStatus("SIFT UP [end]: Last pod sifted up to maintain max-heap invariant.");
 
         if (isScreen("level_play") && strcmp(levelManager.playState, "victory") == 0) {
-            SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+            SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
             setupButtons();
         }
     }
@@ -2377,7 +2404,7 @@ public:
         if (strcmp(levelManager.playState, "victory") != 0 && levelManager.getCurrentLevel()) {
             strncpy(levelManager.playState, "victory", sizeof(levelManager.playState) - 1);
             const int curIdx = levelManager.currentLevelIndex;
-            if (curIdx >= 0 && curIdx < LevelManager::TOTAL_LEVELS) {
+            if (curIdx >= 0 && curIdx < levelManager.levelCount) {
                 levelManager.levels[curIdx].isCompleted = true;
                 levelManager.levels[curIdx].starsEarned = act2.lvl25.insertionRecord.stars;
                 levelManager.levels[curIdx].bestScore = act2.lvl25.insertionRecord.score;
@@ -2385,10 +2412,10 @@ public:
             }
         }
 
-        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+        SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
 
         const int nextIdx = levelManager.currentLevelIndex + 1;
-        if (nextIdx < LevelManager::TOTAL_LEVELS && levelManager.levels[nextIdx].isUnlocked) {
+        if (nextIdx < levelManager.levelCount && levelManager.levels[nextIdx].isUnlocked) {
             loadCampaignLevel(nextIdx);
         } else {
             setScreenState("campaign_map");
@@ -2491,7 +2518,7 @@ public:
                 return;
             }
             int nextIdx = levelManager.currentLevelIndex + 1;
-            if (nextIdx < LevelManager::TOTAL_LEVELS && levelManager.levels[nextIdx].isUnlocked) {
+            if (nextIdx < levelManager.levelCount && levelManager.levels[nextIdx].isUnlocked) {
                 loadCampaignLevel(nextIdx);
             } else {
                 setScreenState("campaign_map");
@@ -2514,13 +2541,23 @@ public:
             return;
         }
 
-        // Campaign Map Level selection (301 to 305)
-        if (actionId >= 301 && actionId <= 305) {
-            int selectedLvlIdx = (campaignSelectedAct - 1) * 5 + (actionId - 301);
-            if (levelManager.levels[selectedLvlIdx].isUnlocked) {
-                loadCampaignLevel(selectedLvlIdx);
-            } else {
-                hud.setStatus("CHAMBER LOCKED: Complete preceding vaults to unlock this level.");
+        // Campaign Map Level selection (301 to 332)
+        if (actionId >= 301 && actionId <= 332) {
+            int actLevelIndices[32];
+            int actLevelCount = 0;
+            for (int i = 0; i < levelManager.levelCount && actLevelCount < 32; i++) {
+                if (levelManager.levels[i].actNumber == campaignSelectedAct) {
+                    actLevelIndices[actLevelCount++] = i;
+                }
+            }
+            int offset = actionId - 301;
+            if (offset >= 0 && offset < actLevelCount) {
+                int selectedLvlIdx = actLevelIndices[offset];
+                if (levelManager.levels[selectedLvlIdx].isUnlocked) {
+                    loadCampaignLevel(selectedLvlIdx);
+                } else {
+                    hud.setStatus("CHAMBER LOCKED: Complete preceding vaults to unlock this level.");
+                }
             }
             return;
         }
@@ -2632,7 +2669,7 @@ public:
                     hud.setStatus(fb, "Bilateral Reflection (Auto)");
                     if (ok) {
                         levelManager.notifyAction("mirror", 0);
-                        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                        SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
                         setupButtons();
                     }
                 }
@@ -2649,7 +2686,7 @@ public:
                         inputBox.setValue(0);
                         if (act1.lvl13.isLevelComplete) {
                             levelManager.notifyAction("height_diam", 0);
-                            SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                            SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
                             setupButtons();
                         }
                     } else {
@@ -2671,7 +2708,7 @@ public:
                     if (ok) {
                         int tgt = levelManager.getCurrentLevel() ? levelManager.getCurrentLevel()->targetValue : 0;
                         levelManager.notifyAction("search", tgt);
-                        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                        SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
                         setupButtons();
                     } else {
                         if (levelManager.scoreSystem.isAlarmBreached()) {
@@ -2770,7 +2807,7 @@ public:
                         if (bst.search(50)) bst.deleteNode(50);
                         syncBSTVisuals();
                         levelManager.notifyAction("delete", 0);
-                        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                        SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
                         setupButtons();
                     }
                 }
@@ -2811,7 +2848,7 @@ public:
 
                         applyAct2RangeVisuals();
                         levelManager.notifyAction("range", 0);
-                        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                        SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
                         setupButtons();
                     }
                 }
@@ -2885,7 +2922,7 @@ public:
                     hud.setStatus(fb, "Prediction: no_rotation");
                     if (act3.lvl34.isLevelComplete) {
                         levelManager.notifyAction("insert", 0);
-                        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                        SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
                     }
                     setupButtons();
                 }
@@ -2900,7 +2937,7 @@ public:
                     hud.setStatus(fb, "Prediction: LL");
                     if (act3.lvl34.isLevelComplete) {
                         levelManager.notifyAction("insert", 0);
-                        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                        SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
                     }
                     setupButtons();
                 }
@@ -2915,7 +2952,7 @@ public:
                     hud.setStatus(fb, "Prediction: RR");
                     if (act3.lvl34.isLevelComplete) {
                         levelManager.notifyAction("insert", 0);
-                        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                        SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
                     }
                     setupButtons();
                 }
@@ -2930,7 +2967,7 @@ public:
                     hud.setStatus(fb, "Prediction: LR");
                     if (act3.lvl34.isLevelComplete) {
                         levelManager.notifyAction("insert", 0);
-                        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                        SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
                     }
                     setupButtons();
                 }
@@ -2945,7 +2982,7 @@ public:
                     hud.setStatus(fb, "Prediction: RL");
                     if (act3.lvl34.isLevelComplete) {
                         levelManager.notifyAction("insert", 0);
-                        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                        SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
                     }
                     setupButtons();
                 }
@@ -2959,7 +2996,7 @@ public:
                     hud.setStatus(fb, "Order-Statistic Claim");
                     if (ok && act3.lvl35.isLevelComplete) {
                         levelManager.notifyAction("boss", 50);
-                        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                        SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
                     }
                     setupButtons();
                 }
@@ -2976,7 +3013,7 @@ public:
                     hud.setStatus(fb, "Bottom-Up Heap Construction");
                     if (ok && act4.lvl41.isLevelComplete) {
                         levelManager.notifyAction("build_heap", 0);
-                        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                        SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
                     }
                     setupButtons();
                 }
@@ -2991,7 +3028,7 @@ public:
                     hud.setStatus(fb, "Inspect Parent & Children");
                     if (ok && act4.lvl41.isLevelComplete) {
                         levelManager.notifyAction("build_heap", 0);
-                        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                        SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
                     }
                     setupButtons();
                 }
@@ -3018,7 +3055,7 @@ public:
                     hud.setStatus(fb, "Priority Repair (Sift-Down)");
                     if (ok && act4.lvl42.isLevelComplete) {
                         levelManager.notifyAction("repair", 0);
-                        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                        SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
                     }
                     setupButtons();
                 }
@@ -3034,7 +3071,7 @@ public:
                     hud.setStatus(fb, "Priority Repair (Sift-Up)");
                     if (ok && act4.lvl42.isLevelComplete) {
                         levelManager.notifyAction("repair", 0);
-                        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                        SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
                     }
                     setupButtons();
                 }
@@ -3050,7 +3087,7 @@ public:
                     hud.setStatus(fb, "Apex Extraction");
                     if (ok && act4.lvl43.isLevelComplete) {
                         levelManager.notifyAction("extract_max", 0);
-                        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                        SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
                     }
                     setupButtons();
                 }
@@ -3066,7 +3103,7 @@ public:
                     hud.setStatus(fb, "Heapify Active Heap");
                     if (ok && act4.lvl43.isLevelComplete) {
                         levelManager.notifyAction("extract_max", 0);
-                        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                        SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
                     }
                     setupButtons();
                 }
@@ -3082,7 +3119,7 @@ public:
                     hud.setStatus(fb, "Race Against Guards");
                     if (ok && act4.lvl44.isLevelComplete) {
                         levelManager.notifyAction("race", 0);
-                        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                        SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
                     }
                     setupButtons();
                 }
@@ -3098,7 +3135,7 @@ public:
                     hud.setStatus(fb, "Race: Heapify Active Heap");
                     if (ok && act4.lvl44.isLevelComplete) {
                         levelManager.notifyAction("race", 0);
-                        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                        SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
                     }
                     setupButtons();
                 }
@@ -3139,7 +3176,7 @@ public:
                     hud.setStatus(fb, "Phase B: Extract Max");
                     if (ok && act4.lvl45.isLevelComplete) {
                         levelManager.notifyAction("boss", 0);
-                        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                        SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
                     }
                     setupButtons();
                 }
@@ -3155,7 +3192,7 @@ public:
                     hud.setStatus(fb, "Phase B: Sift Down Root");
                     if (ok && act4.lvl45.isLevelComplete) {
                         levelManager.notifyAction("boss", 0);
-                        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                        SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
                     }
                     setupButtons();
                 }
@@ -3198,7 +3235,7 @@ public:
         }
 
         if (isScreen("level_play") && strcmp(levelManager.playState, "victory") == 0) {
-            SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+            SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
             setupButtons();
         }
     }
@@ -3337,7 +3374,7 @@ public:
                                 syncReconVisuals();
                                 if (act1.lvl12.isLevelComplete) {
                                     levelManager.notifyAction("reconstruct", 0);
-                                    SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                                    SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
                                     setupButtons();
                                 }
                             } else {
@@ -3368,7 +3405,7 @@ public:
                                 syncBSTVisuals();
                                 applyAct2InitialVisuals(2);
                                 levelManager.notifyAction("insert", act2.lvl22.insertKey);
-                                SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                                SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
                                 setupButtons();
                             } else {
                                 if (levelManager.scoreSystem.isAlarmBreached()) {
@@ -3448,7 +3485,7 @@ public:
                                     layout.nodes[clickedNode].setState("highlighted");
                                     if (act1.lvl11.isLevelComplete) {
                                         levelManager.notifyAction("inorder", 0);
-                                        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                                        SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
                                         setupButtons();
                                     } else if (act1.lvl11.visitedCount == 0) {
                                         syncBinaryTreeVisuals();
@@ -3484,7 +3521,7 @@ public:
                                     }
                                     if (act1.lvl14.isLevelComplete) {
                                         levelManager.notifyAction("lca", 0);
-                                        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                                        SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
                                         setupButtons();
                                     }
                                 } else {
@@ -3500,7 +3537,7 @@ public:
                                     syncBinaryTreeVisuals();
                                     if (act1.lvl15.isLevelComplete) {
                                         levelManager.notifyAction("mirror", 0);
-                                        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                                        SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
                                         setupButtons();
                                     }
                                 } else {
@@ -3530,7 +3567,7 @@ public:
                                     if (act2.lvl21.isLevelComplete) {
                                         layout.nodes[clickedNode].setState("target");
                                         levelManager.notifyAction("search", val);
-                                        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                                        SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
                                         setupButtons();
                                     } else if (!act2.lvl21.isNullReached) {
                                         // Highlight the next node to click
@@ -3559,7 +3596,7 @@ public:
                                         syncBSTVisuals();
                                         applyAct2InitialVisuals(2);
                                         levelManager.notifyAction("insert", act2.lvl22.insertKey);
-                                        SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                                        SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
                                         setupButtons();
                                     }
                                 } else {
@@ -3626,7 +3663,7 @@ public:
                                         layout.nodes[clickedNode].setState("highlighted");
                                         if (act3.lvl31.isLevelComplete) {
                                             levelManager.notifyAction("search", 0);
-                                            SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                                            SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
                                             setupButtons();
                                         }
                                     } else {
@@ -3770,10 +3807,10 @@ public:
                         syncAVLVisualsAnimated();
                         if (lvlNum == 2 && act3.lvl32.isLevelComplete) {
                             levelManager.notifyAction("rotate", 0);
-                            SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                            SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
                         } else if (lvlNum == 3 && act3.lvl33.isLevelComplete) {
                             levelManager.notifyAction("rotate", 0);
-                            SaveManager::saveProgress("levels/savegame.dat", levelManager.levels, LevelManager::TOTAL_LEVELS);
+                            SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
                         } else {
                             isAct3StageTransitionPending = true;
                             pendingAct3StageLevel = lvlNum;
@@ -3997,21 +4034,42 @@ public:
             title.setPosition(640.0f, 75.0f);
             window.draw(title);
 
-            // Render level preview cards
-            float lx = 140.0f;
-            float ly = 230.0f;
+            // Render level preview cards dynamically matching setupButtons()
+            int actLevelIndices[32];
+            int actLevelCount = 0;
+            for (int i = 0; i < levelManager.levelCount && actLevelCount < 32; i++) {
+                if (levelManager.levels[i].actNumber == campaignSelectedAct) {
+                    actLevelIndices[actLevelCount++] = i;
+                }
+            }
+
+            int visibleLevels = actLevelCount > 8 ? 8 : actLevelCount;
             float lw = 190.0f;
             float lh = 170.0f;
             float lgap = 15.0f;
+            float startY = 230.0f;
 
-            int startLvl = (campaignSelectedAct - 1) * 5;
-            for (int i = 0; i < 5; i++) {
-                int lvlIdx = startLvl + i;
+            for (int i = 0; i < visibleLevels; i++) {
+                int lvlIdx = actLevelIndices[i];
                 const LevelDef& ldef = levelManager.levels[lvlIdx];
-                float cx = lx + i * (lw + lgap);
+
+                float cx = 0.0f;
+                float cy = startY;
+                if (visibleLevels <= 5) {
+                    float totalW = visibleLevels * lw + (visibleLevels - 1) * lgap;
+                    float startX = 640.0f - totalW * 0.5f;
+                    cx = startX + i * (lw + lgap);
+                } else {
+                    int row = i / 4;
+                    int col = i % 4;
+                    float totalW = 4 * lw + 3 * lgap;
+                    float startX = 640.0f - totalW * 0.5f;
+                    cx = startX + col * (lw + lgap);
+                    cy = 210.0f + row * (lh + 20.0f);
+                }
 
                 sf::RectangleShape card(sf::Vector2f(lw, lh));
-                card.setPosition(cx, ly);
+                card.setPosition(cx, cy);
                 if (ldef.isUnlocked) {
                     card.setFillColor(sf::Color(25, 12, 35, 230));
                     card.setOutlineColor(ldef.isCompleted ? sf::Color(64, 224, 208) : sf::Color(139, 0, 80));
@@ -4030,7 +4088,7 @@ public:
                 desc.setString(descBuf);
                 desc.setCharacterSize(12);
                 desc.setFillColor(ldef.isUnlocked ? sf::Color(220, 240, 255) : sf::Color(120, 120, 130));
-                desc.setPosition(cx + 10.0f, ly + 55.0f);
+                desc.setPosition(cx + 10.0f, cy + 55.0f);
                 window.draw(desc);
 
                 char optBuf[64];
@@ -4040,7 +4098,7 @@ public:
                 optText.setString(optBuf);
                 optText.setCharacterSize(11);
                 optText.setFillColor(sf::Color(64, 224, 208));
-                optText.setPosition(cx + 10.0f, ly + 80.0f);
+                optText.setPosition(cx + 10.0f, cy + 80.0f);
                 window.draw(optText);
 
                 char scoreBuf[64];
@@ -4050,7 +4108,7 @@ public:
                 scText.setString(scoreBuf);
                 scText.setCharacterSize(11);
                 scText.setFillColor(sf::Color(255, 215, 0));
-                scText.setPosition(cx + 10.0f, ly + 100.0f);
+                scText.setPosition(cx + 10.0f, cy + 100.0f);
                 window.draw(scText);
             }
 

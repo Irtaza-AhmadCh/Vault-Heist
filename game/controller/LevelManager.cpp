@@ -1,341 +1,167 @@
 #include "LevelManager.h"
-#include "UniversalActController.h"
+#include "CampaignJson.h"
 #include <cstring>
-#include <iostream>
+#include <cstdio>
+
+static void setLevelError(char* error, int errorSize, const char* message) {
+    if (error != nullptr && errorSize > 0) {
+        strncpy(error, message, errorSize - 1);
+        error[errorSize - 1] = '\0';
+    }
+}
 
 LevelManager::LevelManager() {
     currentLevelIndex = -1;
+    levelCount = 0;
     strncpy(playState, "in_progress", sizeof(playState) - 1);
-    initLevels();
-}
-
-void LevelManager::initLevels() {
-    int idx = 0;
-
-    // ===== ACT 1: The Blueprint Wing (General Binary Tree) =====
-    levels[idx++] = LevelDef(1, 1, "Level 1.1: Neural Traversal", "The Blueprint Wing", "tree",
-                             "Perform an Inorder Traversal to extract the neural sequence.",
-                             "Inorder visits left branch, root pod, then right branch.",
-                             "inorder", 0, 28);
-
-    levels[idx++] = LevelDef(1, 2, "Level 1.2: Neural Reconstruction", "The Blueprint Wing", "tree",
-                             "Reconstruct the binary tree from traversal blueprints.",
-                             "Use the Preorder + Inorder sequences to rebuild the hive.",
-                             "reconstruct", 0, 14);
-
-    levels[idx++] = LevelDef(1, 3, "Level 1.3: Hive Metrics", "The Blueprint Wing", "tree",
-                             "Calculate and verify Tree Height and Diameter.",
-                             "Height measures vertical levels; diameter measures the longest path.",
-                             "height_diam", 0, 7);
-
-    levels[idx++] = LevelDef(1, 4, "Level 1.4: Synaptic Convergence (LCA)", "The Blueprint Wing", "tree",
-                             "Locate the Lowest Common Ancestor (LCA) and path between pods.",
-                             "Find the deepest shared ancestral pod between branches.",
-                             "lca", 0, 5);
-
-    levels[idx++] = LevelDef(1, 5, "Level 1.5: Bilateral Reflection", "The Blueprint Wing", "tree",
-                             "Invert the hive structure using Tree Mirroring.",
-                             "Swaps left and right children recursively across the trunk.",
-                             "mirror", 0, 7);
-
-    // ===== ACT 2: The Sorted Wing (BST) =====
-    levels[idx++] = LevelDef(2, 1, "Level 2.1: Search Heist", "The Sorted Wing", "bst",
-                             "Search for target pod 60 in the BST using binary search comparisons.",
-                             "Keys smaller go left; keys larger go right.",
-                             "search", 60, 3);
-
-    levels[idx++] = LevelDef(2, 2, "Level 2.2: Stash Loot", "The Sorted Wing", "bst",
-                             "Insert key 45 into the BST at the correct leaf position.",
-                             "Trace comparisons to find the empty NULL slot.",
-                             "insert", 45, 4);
-
-    levels[idx++] = LevelDef(2, 3, "Level 2.3: Steal and Collapse", "The Sorted Wing", "bst",
-                             "Delete leaf (20), one-child (60), and two-child (50) nodes across 3 stages.",
-                             "Identify each deletion case. For two children, swap with inorder successor 60.",
-                             "delete", 0, 4);
-
-    levels[idx++] = LevelDef(2, 4, "Level 2.4: Range Raid", "The Sorted Wing", "bst",
-                             "Execute Range Query [30, 65] and prune non-overlapping subtrees.",
-                             "Branches outside the range boundaries are bypassed (20 and 80 pruned).",
-                             "range", 0, 6);
-
-    levels[idx++] = LevelDef(2, 5, "Level 2.5: Boss: The Lazy Architect", "The Sorted Wing", "bst",
-                             "Insert sorted sequence into BST and observe degeneration into a corridor.",
-                             "Sorted insertions form a chain, destroying logarithmic efficiency.",
-                             "boss", 0, 28);
-
-    // ===== ACT 3: The Architect's Wing (AVL Tree) =====
-    levels[idx++] = LevelDef(3, 1, "Level 3.1: Read the Badges", "The Architect's Wing", "avl",
-                             "Identify all unbalanced nodes (|BF| > 1) in the vault.",
-                             "Inspect badges: green is balanced (-1, 0, +1), red violates AVL invariant.",
-                             "search", 0, 2);
-
-    levels[idx++] = LevelDef(3, 2, "Level 3.2: Single Rotations (LL & RR)", "The Architect's Wing", "avl",
-                             "Repair LL and RR imbalances using single rotations.",
-                             "LL requires Right rotation; RR requires Left rotation.",
-                             "rotate", 0, 2);
-
-    levels[idx++] = LevelDef(3, 3, "Level 3.3: Double Rotations (LR & RL)", "The Architect's Wing", "avl",
-                             "Identify and repair LR and RL imbalances using double rotations.",
-                             "LR is Left-Right double rotation; RL is Right-Left double rotation.",
-                             "rotate", 0, 2);
-
-    levels[idx++] = LevelDef(3, 4, "Level 3.4: Auto Mode and Prediction", "The Architect's Wing", "avl",
-                             "Predict which rotation will occur before each insertion, then watch auto-rebalance.",
-                             "Trace insertion path to determine if BF reaches +2 or -2.",
-                             "insert", 0, 5);
-
-    levels[idx++] = LevelDef(3, 5, "Level 3.5: Boss: Order-Statistic Heist", "The Architect's Wing", "avl",
-                             "Repair the unbalanced BST, then steal the 3rd largest treasure in O(log N).",
-                             "Balance RR at 50, then use subtreeSize to navigate to the 3rd largest node.",
-                             "boss", 50, 4);
-
-    // ===== ACT 4: The Heap Fortress (Max Heap) =====
-    levels[idx++] = LevelDef(4, 1, "Level 4.1: Activate the Vault", "The Heap Fortress", "heap",
-                             "Build a valid Max Heap from raw elements using bottom-up construction.",
-                             "Inspect each parent bottom-up; compare with children and swap with the larger child.",
-                             "build_heap", 0, 3);
-
-    levels[idx++] = LevelDef(4, 2, "Level 4.2: Repair the Security Locks", "The Heap Fortress", "heap",
-                             "Execute Sift-down (Round A) and Sift-up (Round B) to restore heap mechanism.",
-                             "Sift down root 4 with larger child; then sift up new treasure 12 to root.",
-                             "repair", 0, 4);
-
-    levels[idx++] = LevelDef(4, 3, "Level 4.3: Extract the Greatest Treasure", "The Heap Fortress", "heap",
-                             "Repeatedly extract the root maximum and repair remaining heap with sift-down.",
-                             "Swap root with last active element, shrink heap size, and sift down new root.",
-                             "extract_max", 0, 8);
-
-    levels[idx++] = LevelDef(4, 4, "Level 4.4: Race Against the Guards", "The Heap Fortress", "heap",
-                             "Complete 4 extraction/heapify iterations before the alarm threshold triggers lockdown.",
-                             "Work efficiently: each extraction requires root/last swap and sift-down.",
-                             "race", 0, 7);
-
-    levels[idx++] = LevelDef(4, 5, "Level 4.5: Final Vault Boss", "The Heap Fortress", "heap",
-                             "Execute independent full Heap Sort: Phase A build, Phase B extract/sort, Phase C validate.",
-                             "Build max heap bottom-up, then perform repeated extractions until array is sorted.",
-                             "boss", 0, 12);
+    playState[sizeof(playState) - 1] = '\0';
 }
 
 bool LevelManager::loadLevelsFromJson(const char* filepath) {
-    if (filepath == nullptr) return false;
-    FILE* f = fopen(filepath, "r");
-    if (f == nullptr) return false;
-
-    char buffer[16384];
-    size_t bytesRead = fread(buffer, 1, sizeof(buffer) - 1, f);
-    fclose(f);
-    buffer[bytesRead] = '\0';
-
-    const char* ptr = buffer;
-    int count = 0;
-    while (count < TOTAL_LEVELS) {
-        const char* lvlToken = strstr(ptr, "\"act\":");
-        if (lvlToken == nullptr) break;
-
-        int act = 1, lvlNum = 1, optSteps = 5, targetVal = 0;
-        char title[64] = {0};
-        char actName[64] = {0};
-        char sType[16] = {0};
-        char obj[160] = {0};
-        char hint[160] = {0};
-        char reqAct[32] = {0};
-
-        sscanf(lvlToken, "\"act\": %d", &act);
-
-        const char* lnum = strstr(lvlToken, "\"level\":");
-        if (lnum) sscanf(lnum, "\"level\": %d", &lvlNum);
-
-        const char* t = strstr(lvlToken, "\"title\": \"");
-        if (t) {
-            t += 10;
-            const char* end = strchr(t, '\"');
-            if (end) {
-                int len = static_cast<int>(end - t);
-                if (len > 63) len = 63;
-                strncpy(title, t, len);
-                title[len] = '\0';
-            }
-        }
-
-        const char* an = strstr(lvlToken, "\"actName\": \"");
-        if (an) {
-            an += 12;
-            const char* end = strchr(an, '\"');
-            if (end) {
-                int len = static_cast<int>(end - an);
-                if (len > 63) len = 63;
-                strncpy(actName, an, len);
-                actName[len] = '\0';
-            }
-        }
-
-        const char* st = strstr(lvlToken, "\"structureType\": \"");
-        if (st) {
-            st += 18;
-            const char* end = strchr(st, '\"');
-            if (end) {
-                int len = static_cast<int>(end - st);
-                if (len > 15) len = 15;
-                strncpy(sType, st, len);
-                sType[len] = '\0';
-            }
-        }
-
-        const char* ob = strstr(lvlToken, "\"objective\": \"");
-        if (ob) {
-            ob += 14;
-            const char* end = strchr(ob, '\"');
-            if (end) {
-                int len = static_cast<int>(end - ob);
-                if (len > 159) len = 159;
-                strncpy(obj, ob, len);
-                obj[len] = '\0';
-            }
-        }
-
-        const char* hn = strstr(lvlToken, "\"hint\": \"");
-        if (hn) {
-            hn += 9;
-            const char* end = strchr(hn, '\"');
-            if (end) {
-                int len = static_cast<int>(end - hn);
-                if (len > 159) len = 159;
-                strncpy(hint, hn, len);
-                hint[len] = '\0';
-            }
-        }
-
-        const char* ra = strstr(lvlToken, "\"requiredAction\": \"");
-        if (ra) {
-            ra += 19;
-            const char* end = strchr(ra, '\"');
-            if (end) {
-                int len = static_cast<int>(end - ra);
-                if (len > 31) len = 31;
-                strncpy(reqAct, ra, len);
-                reqAct[len] = '\0';
-            }
-        }
-
-        const char* tv = strstr(lvlToken, "\"targetValue\":");
-        if (tv) sscanf(tv, "\"targetValue\": %d", &targetVal);
-
-        const char* os = strstr(lvlToken, "\"optimalSteps\":");
-        if (os) sscanf(os, "\"optimalSteps\": %d", &optSteps);
-
-        levels[count] = LevelDef(act, lvlNum, title, actName, sType, obj, hint, reqAct, targetVal, optSteps);
-        count++;
-        ptr = lvlToken + 6;
-    }
-
-    return count == TOTAL_LEVELS;
+    char error[192];
+    return loadCampaign(filepath, error, sizeof(error));
 }
 
-bool LevelManager::loadLevel(int index) {
-    if (index < 0 || index >= TOTAL_LEVELS) {
-        currentLevelIndex = -1;
-        return false;
+bool LevelManager::loadCampaign(const char* filepath, char* error, int errorSize) {
+    CampaignJson json;
+    if (!json.loadFile(filepath, error, errorSize)) return false;
+    char objectText[MAX_CAMPAIGN_LEVELS][CampaignJson::MAX_LEVEL_TEXT];
+    int count = 0;
+    if (!json.splitLevels(objectText, MAX_CAMPAIGN_LEVELS, count, error, errorSize)) return false;
+
+    LevelDef loaded[MAX_CAMPAIGN_LEVELS];
+    for (int i = 0; i < count; i++) {
+        LevelDef level;
+        if (!json.readString(objectText[i], "id", level.id, sizeof(level.id)) ||
+            !json.readInt(objectText[i], "act", level.actNumber) ||
+            !json.readInt(objectText[i], "level", level.levelNumber) ||
+            !json.readInt(objectText[i], "order", level.order) ||
+            !json.readString(objectText[i], "title", level.title, sizeof(level.title)) ||
+            !json.readString(objectText[i], "actName", level.actName, sizeof(level.actName)) ||
+            !json.readString(objectText[i], "structureType", level.structureType, sizeof(level.structureType)) ||
+            !json.readString(objectText[i], "gameplayType", level.gameplayType, sizeof(level.gameplayType)) ||
+            !json.readString(objectText[i], "objective", level.objective, sizeof(level.objective)) ||
+            !json.readString(objectText[i], "hint", level.hint, sizeof(level.hint)) ||
+            !json.readString(objectText[i], "requiredAction", level.requiredAction, sizeof(level.requiredAction))) {
+            snprintf(error, errorSize, "Level object %d is missing a required field.", i + 1);
+            return false;
+        }
+        json.readInt(objectText[i], "targetValue", level.targetValue);
+        json.readInt(objectText[i], "secondaryTargetValue", level.secondaryTargetValue);
+        json.readIntArray(objectText[i], "initialValues", level.initialValues, LevelDef::MAX_MAP_VALUES, level.initialValueCount);
+        json.readIntArray(objectText[i], "requiredValues", level.requiredValues, LevelDef::MAX_MAP_VALUES, level.requiredValueCount);
+        json.readIntArray(objectText[i], "stageTargets", level.stageTargets, LevelDef::MAX_STAGES, level.stageTargetCount);
+        calculateOptimalSteps(level);
+        level.alarmCapacity = (3 * level.optimalSteps + 1) / 2 + 2;
+        level.isUnlocked = level.order == 1;
+        if (!validateLevel(level, error, errorSize)) return false;
+        for (int j = 0; j < i; j++) {
+            if (strcmp(loaded[j].id, level.id) == 0 || loaded[j].order == level.order) {
+                setLevelError(error, errorSize, "Campaign has duplicate level id or order."); return false;
+            }
+        }
+        loaded[i] = level;
     }
-    currentLevelIndex = index;
-    strncpy(playState, "in_progress", sizeof(playState) - 1);
-    // Reset scoring for this level
-    scoreSystem.reset(levels[index].optimalSteps, levels[index].alarmCapacity);
-    // Initialise the universal controller for this level
-    universalCtrl.initLevel(levels[index], scoreSystem);
+    for (int order = 1; order <= count; order++) {
+        bool found = false;
+        for (int i = 0; i < count; i++) if (loaded[i].order == order) found = true;
+        if (!found) { setLevelError(error, errorSize, "Campaign order must start at 1 and be contiguous."); return false; }
+    }
+    for (int i = 0; i < count; i++) for (int j = i + 1; j < count; j++) if (loaded[j].order < loaded[i].order) { LevelDef swap = loaded[i]; loaded[i] = loaded[j]; loaded[j] = swap; }
+    for (int i = 0; i < count; i++) levels[i] = loaded[i];
+    levelCount = count;
+    currentLevelIndex = -1;
     return true;
 }
 
-bool LevelManager::checkVictory(const char* actionName, int value) {
-    if (currentLevelIndex < 0 || currentLevelIndex >= TOTAL_LEVELS) return false;
-    const LevelDef& lvl = levels[currentLevelIndex];
+bool LevelManager::validateLevel(const LevelDef& level, char* error, int errorSize) const {
+    bool structureOk = strcmp(level.structureType, "tree") == 0 || strcmp(level.structureType, "bst") == 0 || strcmp(level.structureType, "avl") == 0 || strcmp(level.structureType, "heap") == 0;
+    if (level.id[0] == '\0' || level.actNumber < 1 || level.actNumber > 4 || level.levelNumber < 1 || level.order < 1 || !structureOk || level.gameplayType[0] == '\0' || level.optimalSteps <= 0) {
+        setLevelError(error, errorSize, "Campaign level has invalid identity, type, or calculated steps."); return false;
+    }
+    return true;
+}
 
-    if (strcmp(lvl.requiredAction, actionName) == 0) {
-        if (lvl.targetValue == 0 || lvl.targetValue == value) {
-            return true;
+int LevelManager::calculateBstSearchSteps(const LevelDef& level, bool includeInsert) const {
+    if (level.requiredValueCount > 0) return level.requiredValueCount + (includeInsert ? 1 : 0);
+    if (level.initialValueCount > 0) return includeInsert ? 2 : 1;
+    return 1;
+}
+
+int LevelManager::calculateHeapBuildSteps(const LevelDef& level) const {
+    int values[LevelDef::MAX_MAP_VALUES];
+    int count = level.initialValueCount;
+    if (count <= 0) return 1;
+    for (int i = 0; i < count; i++) values[i] = level.initialValues[i];
+    int steps = 0;
+    for (int parent = count / 2 - 1; parent >= 0; parent--) {
+        int index = parent;
+        while (true) {
+            int left = index * 2 + 1;
+            int right = left + 1;
+            if (left >= count) break;
+            steps++;
+            int largest = index;
+            if (left < count && values[left] > values[largest]) largest = left;
+            if (right < count && values[right] > values[largest]) largest = right;
+            if (largest == index) break;
+            int temp = values[index]; values[index] = values[largest]; values[largest] = temp;
+            index = largest;
         }
     }
+    return steps;
+}
 
-    // Secondary matches (e.g. LL vs RR or LR vs RL or kth vs rank)
-    if (strcmp(lvl.requiredAction, "boss") == 0 && (strcmp(actionName, "boss") == 0 || strcmp(actionName, "heap_sort") == 0)) return true;
-    if (strcmp(lvl.requiredAction, "repair") == 0 && (strcmp(actionName, "repair") == 0 || strcmp(actionName, "sift_down") == 0 || strcmp(actionName, "sift_up") == 0)) return true;
-    if (strcmp(lvl.requiredAction, "race") == 0 && (strcmp(actionName, "race") == 0 || strcmp(actionName, "extract_max") == 0)) return true;
-    if (strcmp(lvl.requiredAction, "build_heap") == 0 && strcmp(actionName, "build_heap") == 0) return true;
-    if (strcmp(lvl.requiredAction, "extract_max") == 0 && strcmp(actionName, "extract_max") == 0) return true;
-    if (strcmp(lvl.requiredAction, "rotate") == 0 && strcmp(actionName, "rotate") == 0) return true;
-    if (strcmp(lvl.requiredAction, "demo_ll") == 0 && strcmp(actionName, "demo_rr") == 0) return true;
-    if (strcmp(lvl.requiredAction, "demo_lr") == 0 && strcmp(actionName, "demo_rl") == 0) return true;
-    if (strcmp(lvl.requiredAction, "sift_down") == 0 && strcmp(actionName, "sift_up") == 0) return true;
-    if (strcmp(lvl.requiredAction, "kth") == 0 && strcmp(actionName, "rank") == 0) return true;
+void LevelManager::calculateOptimalSteps(LevelDef& level) const {
+    int steps = 0;
+    if (strcmp(level.gameplayType, "guided_search") == 0) steps = calculateBstSearchSteps(level, false);
+    else if (strcmp(level.gameplayType, "guided_insert") == 0) steps = calculateBstSearchSteps(level, true);
+    else if (strcmp(level.gameplayType, "build_heap") == 0) steps = calculateHeapBuildSteps(level);
+    else if (strcmp(level.gameplayType, "staged_delete") == 0) steps = level.stageTargetCount + 1;
+    else if (strcmp(level.gameplayType, "degeneration_boss") == 0) for (int i = 0; i < level.requiredValueCount; i++) steps += i + 1;
+    else if (strcmp(level.gameplayType, "order_statistic_boss") == 0) steps = 1 + level.requiredValueCount;
+    else if (level.requiredValueCount > 0) steps = level.requiredValueCount;
+    else if (level.stageTargetCount > 0) steps = level.stageTargetCount;
+    else steps = 1;
+    level.optimalSteps = steps;
+}
 
-    return false;
+bool LevelManager::loadLevel(int index) {
+    if (index < 0 || index >= levelCount) { currentLevelIndex = -1; return false; }
+    currentLevelIndex = index;
+    strncpy(playState, "in_progress", sizeof(playState) - 1);
+    playState[sizeof(playState) - 1] = '\0';
+    scoreSystem.reset(levels[index].optimalSteps, levels[index].alarmCapacity);
+    return true;
+}
+
+int LevelManager::findLevelIndexById(const char* id) const { if (id == nullptr) return -1; for (int i = 0; i < levelCount; i++) if (strcmp(levels[i].id, id) == 0) return i; return -1; }
+
+bool LevelManager::checkVictory(const char* actionName, int value) {
+    if (currentLevelIndex < 0 || currentLevelIndex >= levelCount) return false;
+    const LevelDef& level = levels[currentLevelIndex];
+    if (strcmp(level.requiredAction, actionName) == 0 && (level.targetValue == 0 || level.targetValue == value)) return true;
+    if (strcmp(level.requiredAction, "boss") == 0 && (strcmp(actionName, "boss") == 0 || strcmp(actionName, "heap_sort") == 0)) return true;
+    if (strcmp(level.requiredAction, "repair") == 0 && (strcmp(actionName, "repair") == 0 || strcmp(actionName, "sift_down") == 0 || strcmp(actionName, "sift_up") == 0)) return true;
+    if (strcmp(level.requiredAction, "race") == 0 && (strcmp(actionName, "race") == 0 || strcmp(actionName, "extract_max") == 0)) return true;
+    return strcmp(level.requiredAction, "rotate") == 0 && strcmp(actionName, "rotate") == 0;
 }
 
 void LevelManager::notifyAction(const char* actionName, int value) {
-    if (currentLevelIndex < 0 || currentLevelIndex >= TOTAL_LEVELS) return;
-    if (strcmp(playState, "in_progress") != 0) return;
-
-    // Forward action to the universal controller (updates alarm, penalties, feedback)
-    char feedback[256] = {0};
-    universalCtrl.handleAction(actionName, value, feedback, sizeof(feedback));
-    // Feedback could be logged or sent to UI; for now we ignore it.
-
-    if (scoreSystem.isAlarmBreached()) {
-        strncpy(playState, "failed", sizeof(playState) - 1);
-        return;
-    }
-
+    if (currentLevelIndex < 0 || currentLevelIndex >= levelCount || strcmp(playState, "in_progress") != 0) return;
+    if (scoreSystem.isAlarmBreached()) { strncpy(playState, "failed", sizeof(playState) - 1); return; }
     if (checkVictory(actionName, value)) {
         strncpy(playState, "victory", sizeof(playState) - 1);
-        int stars = scoreSystem.computeStars();
-        int score = scoreSystem.computeFinalScore();
-        levels[currentLevelIndex].isCompleted = true;
-        if (stars > levels[currentLevelIndex].starsEarned) {
-            levels[currentLevelIndex].starsEarned = stars;
-        }
-        if (score > levels[currentLevelIndex].bestScore) {
-            levels[currentLevelIndex].bestScore = score;
-        }
+        LevelDef& level = levels[currentLevelIndex]; level.isCompleted = true;
+        int stars = scoreSystem.computeStars(); int score = scoreSystem.computeFinalScore();
+        if (stars > level.starsEarned) level.starsEarned = stars;
+        if (score > level.bestScore) level.bestScore = score;
         unlockNextLevel();
     }
 }
 
-
-
-
-LevelDef* LevelManager::getCurrentLevel() {
-    if (currentLevelIndex >= 0 && currentLevelIndex < TOTAL_LEVELS) {
-        return &levels[currentLevelIndex];
-    }
-    return nullptr;
-}
-
-const LevelDef* LevelManager::getCurrentLevel() const {
-    if (currentLevelIndex >= 0 && currentLevelIndex < TOTAL_LEVELS) {
-        return &levels[currentLevelIndex];
-    }
-    return nullptr;
-}
-
-int LevelManager::getCurrentAct() const {
-    if (currentLevelIndex >= 0 && currentLevelIndex < TOTAL_LEVELS) {
-        return levels[currentLevelIndex].actNumber;
-    }
-    return 1;
-}
-
-bool LevelManager::unlockNextLevel() {
-    int nextIdx = currentLevelIndex + 1;
-    if (nextIdx < TOTAL_LEVELS) {
-        levels[nextIdx].isUnlocked = true;
-        return true;
-    }
-    return false;
-}
-
-void LevelManager::resetCurrentLevel() {
-    if (currentLevelIndex >= 0 && currentLevelIndex < TOTAL_LEVELS) {
-        loadLevel(currentLevelIndex);
-    }
-}
-
+LevelDef* LevelManager::getCurrentLevel() { return (currentLevelIndex >= 0 && currentLevelIndex < levelCount) ? &levels[currentLevelIndex] : nullptr; }
+const LevelDef* LevelManager::getCurrentLevel() const { return (currentLevelIndex >= 0 && currentLevelIndex < levelCount) ? &levels[currentLevelIndex] : nullptr; }
+int LevelManager::getCurrentAct() const { const LevelDef* level = getCurrentLevel(); return level ? level->actNumber : 1; }
+bool LevelManager::unlockNextLevel() { int next = currentLevelIndex + 1; if (next >= 0 && next < levelCount) { levels[next].isUnlocked = true; return true; } return false; }
+void LevelManager::resetCurrentLevel() { if (currentLevelIndex >= 0 && currentLevelIndex < levelCount) loadLevel(currentLevelIndex); }

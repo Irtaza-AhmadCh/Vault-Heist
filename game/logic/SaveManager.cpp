@@ -1,5 +1,6 @@
 #include "SaveManager.h"
 #include <cstdio>
+#include <cstring>
 
 bool SaveManager::saveProgress(const char* filepath, const LevelDef levels[], int levelCount) {
     if (filepath == nullptr || levels == nullptr || levelCount <= 0) return false;
@@ -7,13 +8,15 @@ bool SaveManager::saveProgress(const char* filepath, const LevelDef levels[], in
     FILE* file = fopen(filepath, "w");
     if (file == nullptr) return false;
 
-    fprintf(file, "VAULT_HEIST_SAVE_V1\n");
-    fprintf(file, "%d\n", levelCount);
+    int savedCount = 0;
+    for (int i = 0; i < levelCount; i++) if (levels[i].id[0] != '\0') savedCount++;
+    fprintf(file, "VAULT_HEIST_SAVE_V2\n");
+    fprintf(file, "%d\n", savedCount);
 
     for (int i = 0; i < levelCount; i++) {
-        fprintf(file, "%d %d %d %d %d %d\n",
-                levels[i].actNumber,
-                levels[i].levelNumber,
+        if (levels[i].id[0] == '\0') continue;
+        fprintf(file, "%s %d %d %d %d\n",
+                levels[i].id,
                 levels[i].isUnlocked ? 1 : 0,
                 levels[i].isCompleted ? 1 : 0,
                 levels[i].starsEarned,
@@ -36,25 +39,55 @@ bool SaveManager::loadProgress(const char* filepath, LevelDef levels[], int leve
         return false;
     }
 
-    int savedCount = 0;
-    if (fscanf(file, "%d", &savedCount) != 1) {
-        fclose(file);
-        return false;
-    }
-
-    int limit = (savedCount < levelCount) ? savedCount : levelCount;
-    for (int i = 0; i < limit; i++) {
-        int act = 0, lvl = 0, unlocked = 0, completed = 0, stars = 0, score = 0;
-        if (fscanf(file, "%d %d %d %d %d %d", &act, &lvl, &unlocked, &completed, &stars, &score) == 6) {
-            levels[i].isUnlocked = (unlocked != 0);
-            levels[i].isCompleted = (completed != 0);
-            levels[i].starsEarned = stars;
-            levels[i].bestScore = score;
+    if (strcmp(header, "VAULT_HEIST_SAVE_V2") == 0) {
+        int savedCount = 0;
+        if (fscanf(file, "%d", &savedCount) != 1) {
+            fclose(file);
+            return false;
         }
+
+        for (int i = 0; i < savedCount; i++) {
+            char id[32] = {0};
+            int unlocked = 0, completed = 0, stars = 0, score = 0;
+            if (fscanf(file, "%31s %d %d %d %d", id, &unlocked, &completed, &stars, &score) != 5) break;
+            for (int j = 0; j < levelCount; j++) {
+                if (strcmp(levels[j].id, id) == 0) {
+                    levels[j].isUnlocked = unlocked != 0;
+                    levels[j].isCompleted = completed != 0;
+                    levels[j].starsEarned = stars;
+                    levels[j].bestScore = score;
+                    break;
+                }
+            }
+        }
+        fclose(file);
+        return true;
+    } else if (strcmp(header, "VAULT_HEIST_SAVE_V1") == 0) {
+        int savedCount = 0;
+        if (fscanf(file, "%d", &savedCount) != 1) {
+            fclose(file);
+            return false;
+        }
+
+        for (int i = 0; i < savedCount; i++) {
+            int act = 0, lvl = 0, unlocked = 0, completed = 0, stars = 0, score = 0;
+            if (fscanf(file, "%d %d %d %d %d %d", &act, &lvl, &unlocked, &completed, &stars, &score) != 6) break;
+            for (int j = 0; j < levelCount; j++) {
+                if (levels[j].actNumber == act && levels[j].levelNumber == lvl) {
+                    levels[j].isUnlocked = unlocked != 0;
+                    levels[j].isCompleted = completed != 0;
+                    levels[j].starsEarned = stars;
+                    levels[j].bestScore = score;
+                    break;
+                }
+            }
+        }
+        fclose(file);
+        return true;
     }
 
     fclose(file);
-    return true;
+    return false;
 }
 
 static void serializeTreeHelper(TreeNode* node, char* buffer, int maxLen, int& offset) {

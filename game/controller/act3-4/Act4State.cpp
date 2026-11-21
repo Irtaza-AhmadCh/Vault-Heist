@@ -34,7 +34,7 @@ void Act4Controller::initLevel(int levelNum, MaxHeap* heapModel, ScoreSystem& sc
 
         // Optimal steps = 3 (1 no-swap at parent 1, 1 swap at root 0, 1 swap at index 1)
         // Alarm capacity = ceil(1.5 * 3) + 2 = 5 + 2 = 7
-        score.reset(3, 7);
+        score.reset(score.optimalSteps, score.alarmCapacity);
     } else if (levelNum == 2) {
         // Level 4.2: Repair the Security Locks (Sift-Down Round A & Sift-Up Round B)
         // Round A initial: disturbed array [4, 10, 3, 5, 1]
@@ -58,7 +58,7 @@ void Act4Controller::initLevel(int levelNum, MaxHeap* heapModel, ScoreSystem& sc
 
         // Optimal steps = 4 (2 downward swaps in Round A + 2 upward swaps in Round B)
         // Alarm capacity = ceil(1.5 * 4) + 2 = 6 + 2 = 8
-        score.reset(4, 8);
+        score.reset(score.optimalSteps, score.alarmCapacity);
     } else if (levelNum == 3) {
         // Level 4.3: Extract the Greatest Treasure (Extract Maximum & Heapify)
         // Initial valid Max Heap: [10, 5, 3, 4, 1]
@@ -81,7 +81,7 @@ void Act4Controller::initLevel(int levelNum, MaxHeap* heapModel, ScoreSystem& sc
                  "EXTRACT GREATEST TREASURE: Root contains maximum (10). Click 'Extract Maximum'.");
 
         // Optimal steps = 8. Alarm capacity = ceil(1.5 * 8) + 2 = 14
-        score.reset(8, 14);
+        score.reset(score.optimalSteps, score.alarmCapacity);
     } else if (levelNum == 4) {
         // Level 4.4: Race Against the Guards (Multi-round extraction under alarm pressure)
         // Initial valid Max Heap: [15, 12, 8, 10, 6, 4]
@@ -105,7 +105,7 @@ void Act4Controller::initLevel(int levelNum, MaxHeap* heapModel, ScoreSystem& sc
                  "RACE AGAINST GUARDS: Complete 4 extractions before alarm reaches capacity! Click 'Extract Maximum'.");
 
         // Optimal steps = 7. Alarm capacity = ceil(1.5 * 7) + 2 = 13
-        score.reset(7, 13);
+        score.reset(score.optimalSteps, score.alarmCapacity);
     } else if (levelNum == 5) {
         // Level 4.5: Final Vault Boss (Independent full Heap Sort)
         // Initial unsorted array: [12, 3, 17, 8, 15, 6, 1]
@@ -132,7 +132,7 @@ void Act4Controller::initLevel(int levelNum, MaxHeap* heapModel, ScoreSystem& sc
                  lvl45.currentParentIndex, currentHeap->get(lvl45.currentParentIndex));
 
         // Optimal steps = 12. Alarm capacity = ceil(1.5 * 12) + 2 = 20
-        score.reset(12, 20);
+        score.reset(score.optimalSteps, score.alarmCapacity);
     }
 }
 

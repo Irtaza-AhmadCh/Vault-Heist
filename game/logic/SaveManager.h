@@ -22,7 +22,7 @@ struct EndlessSaveData {
 
 class SaveManager {
 public:
-    static const int TOTAL_LEVELS = 20;
+    static const int MAX_CAMPAIGN_LEVELS = 32;
 
     static bool saveProgress(const char* filepath, const LevelDef levels[], int levelCount);
     static bool loadProgress(const char* filepath, LevelDef levels[], int levelCount);

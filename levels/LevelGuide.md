@@ -30,8 +30,8 @@ struct LevelDef {
     char hint[160];         // Pedagogical guidance / hint
     char requiredAction[32];// Victory action identifier (e.g. "inorder", "search", "insert")
     int targetValue;        // Key/element value required for victory (0 if any or action-based)
-    int optimalSteps;       // Baseline step count for 3-star rating
-    int alarmCapacity;      // Calculated as ceil(1.5 * optimalSteps) + 2
+    int optimalSteps;       // Calculated by LevelManager from the configured map
+    int alarmCapacity;      // Calculated from optimalSteps; never authored in JSON
     bool isUnlocked;        // Whether the chamber is accessible
     int starsEarned;        // 0 to 3 stars earned by player
     int bestScore;          // Highest score recorded
@@ -57,7 +57,9 @@ Example JSON level block:
   "hint": "Keys smaller go left; keys larger go right.",
   "requiredAction": "search",
   "targetValue": 60,
-  "optimalSteps": 3
+  "gameplayType": "guided_search",
+  "initialValues": [50, 30, 70, 20, 40, 60, 85],
+  "requiredValues": [50, 70, 60]
 }
 ```
 
@@ -113,7 +115,7 @@ When adding or modifying a level, set `"requiredAction"` to one of the following
 ## 6. How to Add a New Level
 
 1. Open `levels/campaign_levels.json`.
-2. Add a new JSON object under `"levels"` following the schema above.
-3. If expanding beyond 20 levels, update `TOTAL_LEVELS` in `LevelManager.h`.
-4. Run `build.bat` to recompile the project.
-5. Launch `main.exe` and navigate to Campaign Map to verify card display, objective description, and completion trigger.
+2. Add a new object with a unique `id`, contiguous `order`, supported `gameplayType`, and the logical map fields required by that type.
+3. Keep the campaign at or below `MAX_CAMPAIGN_LEVELS` (32).
+4. Do not enter `optimalSteps` or `alarmCapacity`; `LevelManager` computes both from the map.
+5. Run `build.bat` and the campaign configuration test.
