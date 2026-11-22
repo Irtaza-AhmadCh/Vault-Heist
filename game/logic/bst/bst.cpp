@@ -20,14 +20,23 @@ BSTNode::BSTNode(int k, int val, int nodeId) {
     parent = nullptr;
 }
 
-BST::BST() {
+BST::BST(EventLog* log) {
     root = nullptr;
     nextId = 1;
+    eventLog = log;
 }
 
 BST::~BST() {
     clearRecursive(root);
     root = nullptr;
+}
+
+void BST::setEventLog(EventLog* log) {
+    eventLog = log;
+}
+
+EventLog* BST::getEventLog() const {
+    return eventLog;
 }
 
 void BST::clearRecursive(BSTNode* node) {
@@ -55,11 +64,23 @@ BSTNode* BST::insertRecursive(BSTNode* node, int key, BSTNode* parentNode) {
     if (node == nullptr) {
         BSTNode* newNode = new BSTNode(key, 0, nextId++);
         newNode->parent = parentNode;
+        if (eventLog != nullptr) {
+            int pId = parentNode ? parentNode->id : -1;
+            int side = (parentNode && key < parentNode->key) ? 0 : 1;
+            eventLog->logInsert(newNode->id, pId, side, key);
+        }
         return newNode;
     }
+
     if (key < node->key) {
+        if (eventLog != nullptr) {
+            eventLog->logCompare(node->id, node->key, "<");
+        }
         node->left = insertRecursive(node->left, key, node);
     } else if (key > node->key) {
+        if (eventLog != nullptr) {
+            eventLog->logCompare(node->id, node->key, ">");
+        }
         node->right = insertRecursive(node->right, key, node);
     }
     return node;
@@ -67,14 +88,33 @@ BSTNode* BST::insertRecursive(BSTNode* node, int key, BSTNode* parentNode) {
 
 void BST::insert(int key) {
     root = insertRecursive(root, key, nullptr);
+    if (eventLog != nullptr) {
+        eventLog->logDone("BST insertion complete");
+    }
 }
 
 bool BST::search(int key) const {
     BSTNode* curr = root;
     while (curr != nullptr) {
-        if (key == curr->key) return true;
-        if (key < curr->key) curr = curr->left;
-        else curr = curr->right;
+        if (eventLog != nullptr) {
+            const char* res = (key == curr->key) ? "=" : (key < curr->key ? "<" : ">");
+            eventLog->logCompare(curr->id, curr->key, res);
+        }
+        if (key == curr->key) {
+            if (eventLog != nullptr) {
+                eventLog->logVisit(curr->id, curr->key);
+                eventLog->logDone("Search target pod located!");
+            }
+            return true;
+        }
+        if (key < curr->key) {
+            curr = curr->left;
+        } else {
+            curr = curr->right;
+        }
+    }
+    if (eventLog != nullptr) {
+        eventLog->logDone("Target key not in BST.");
     }
     return false;
 }
@@ -83,25 +123,46 @@ BSTNode* BST::deleteRecursive(BSTNode* node, int key) {
     if (node == nullptr) return nullptr;
 
     if (key < node->key) {
+        if (eventLog != nullptr) {
+            eventLog->logCompare(node->id, node->key, "<");
+        }
         node->left = deleteRecursive(node->left, key);
     } else if (key > node->key) {
+        if (eventLog != nullptr) {
+            eventLog->logCompare(node->id, node->key, ">");
+        }
         node->right = deleteRecursive(node->right, key);
     } else {
         if (node->left == nullptr && node->right == nullptr) {
+            if (eventLog != nullptr) {
+                int pId = node->parent ? node->parent->id : -1;
+                eventLog->logUnlink(node->id, pId, 0, node->key);
+            }
             delete node;
             return nullptr;
         } else if (node->left == nullptr) {
             BSTNode* temp = node->right;
             temp->parent = node->parent;
+            if (eventLog != nullptr) {
+                int pId = node->parent ? node->parent->id : -1;
+                eventLog->logUnlink(node->id, pId, 1, node->key);
+            }
             delete node;
             return temp;
         } else if (node->right == nullptr) {
             BSTNode* temp = node->left;
             temp->parent = node->parent;
+            if (eventLog != nullptr) {
+                int pId = node->parent ? node->parent->id : -1;
+                eventLog->logUnlink(node->id, pId, 0, node->key);
+            }
             delete node;
             return temp;
         } else {
             BSTNode* successor = findMinNode(node->right);
+            if (eventLog != nullptr) {
+                eventLog->logSwapValue(node->id, successor->id, node->key, successor->key);
+            }
             node->key = successor->key;
             node->value = successor->value;
             node->right = deleteRecursive(node->right, successor->key);
@@ -112,6 +173,9 @@ BSTNode* BST::deleteRecursive(BSTNode* node, int key) {
 
 void BST::deleteNode(int key) {
     root = deleteRecursive(root, key);
+    if (eventLog != nullptr) {
+        eventLog->logDone("BST deletion complete");
+    }
 }
 
 int BST::getMin() const {
@@ -167,13 +231,21 @@ int BST::predecessor(int key) const {
 void BST::rangeHelper(BSTNode* node, int lo, int hi) const {
     if (node == nullptr) return;
     if (node->key > lo) rangeHelper(node->left, lo, hi);
-    if (node->key >= lo && node->key <= hi) cout << node->key << " ";
+    if (node->key >= lo && node->key <= hi) {
+        if (eventLog != nullptr) {
+            eventLog->logHighlightSubtree(node->id, "visited");
+        }
+        cout << node->key << " ";
+    }
     if (node->key < hi) rangeHelper(node->right, lo, hi);
 }
 
 void BST::rangeQuery(int lo, int hi) const {
     rangeHelper(root, lo, hi);
     cout << endl;
+    if (eventLog != nullptr) {
+        eventLog->logDone("BST range query complete");
+    }
 }
 
 void BST::countHelper(BSTNode* node, int lo, int hi, int& count) const {
@@ -197,25 +269,28 @@ bool BST::validateHelper(BSTNode* node, int minVal, int maxVal) const {
 }
 
 bool BST::isValidBST() const {
-    return validateHelper(root, -2147483648, 2147483647);
+    return validateHelper(root, -2147483647, 2147483647);
 }
 
 int BST::lcaBST(int a, int b) const {
     BSTNode* cur = root;
     while (cur != nullptr) {
-        if (a < cur->key && b < cur->key) cur = cur->left;
-        else if (a > cur->key && b > cur->key) cur = cur->right;
-        else return cur->key;
+        if (a < cur->key && b < cur->key) {
+            cur = cur->left;
+        } else if (a > cur->key && b > cur->key) {
+            cur = cur->right;
+        } else {
+            return cur->key;
+        }
     }
     return -1;
 }
 
 int BST::heightHelper(BSTNode* node) const {
     if (node == nullptr) return 0;
-    int leftH = heightHelper(node->left);
-    int rightH = heightHelper(node->right);
-    if (leftH > rightH) return leftH + 1;
-    return rightH + 1;
+    int lh = heightHelper(node->left);
+    int rh = heightHelper(node->right);
+    return 1 + (lh > rh ? lh : rh);
 }
 
 int BST::getHeight() const {
@@ -223,6 +298,7 @@ int BST::getHeight() const {
 }
 
 bool BST::isDegenerate() const {
+    if (root == nullptr) return false;
     BSTNode* cur = root;
     while (cur != nullptr) {
         if (cur->left != nullptr && cur->right != nullptr) return false;
@@ -235,6 +311,9 @@ bool BST::isDegenerate() const {
 void BST::inorderHelper(BSTNode* node) const {
     if (node == nullptr) return;
     inorderHelper(node->left);
+    if (eventLog != nullptr) {
+        eventLog->logVisit(node->id, node->key);
+    }
     cout << node->key << " ";
     inorderHelper(node->right);
 }
@@ -242,38 +321,33 @@ void BST::inorderHelper(BSTNode* node) const {
 void BST::printInorder() const {
     inorderHelper(root);
     cout << endl;
+    if (eventLog != nullptr) {
+        eventLog->logDone("Inorder traversal complete");
+    }
 }
 
-struct LevelQNode {
-    BSTNode* node;
-    LevelQNode* next;
-    LevelQNode(BSTNode* n) { node = n; next = nullptr; }
-};
-
-void BST::levelOrderHelper(BSTNode* start) const {
-    if (start == nullptr) return;
-    LevelQNode* front = new LevelQNode(start);
-    LevelQNode* back = front;
-    while (front != nullptr) {
-        BSTNode* cur = front->node;
+void BST::levelOrderHelper(BSTNode* node) const {
+    if (node == nullptr) return;
+    BSTNode* queue[128];
+    int front = 0, back = 0;
+    queue[back++] = node;
+    while (front < back) {
+        BSTNode* cur = queue[front++];
+        if (eventLog != nullptr) {
+            eventLog->logVisit(cur->id, cur->key);
+        }
         cout << cur->key << " ";
-        if (cur->left != nullptr) {
-            back->next = new LevelQNode(cur->left);
-            back = back->next;
-        }
-        if (cur->right != nullptr) {
-            back->next = new LevelQNode(cur->right);
-            back = back->next;
-        }
-        LevelQNode* temp = front;
-        front = front->next;
-        delete temp;
+        if (cur->left != nullptr) queue[back++] = cur->left;
+        if (cur->right != nullptr) queue[back++] = cur->right;
     }
-    cout << endl;
 }
 
 void BST::levelOrder() const {
     levelOrderHelper(root);
+    cout << endl;
+    if (eventLog != nullptr) {
+        eventLog->logDone("Level-order traversal complete");
+    }
 }
 
 BSTNode* BST::getRoot() const {

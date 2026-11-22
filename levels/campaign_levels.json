@@ -3,7 +3,7 @@
   "version": "1.0",
   "totalActs": 4,
   "levelsPerAct": 5,
-  "totalLevels": 25,
+  "totalLevels": 26,
   "levels": [
     {
       "act": 1,
@@ -154,7 +154,7 @@
     {
       "act": 3,
       "level": 1,
-      "id": "act3.level1", "order": 26, "gameplayType": "find_unbalanced",
+      "id": "act3.level1", "order": 12, "gameplayType": "find_unbalanced",
       "title": "Level 3.1: Read the Badges",
       "actName": "The Architect's Wing",
       "structureType": "avl",
@@ -167,7 +167,7 @@
     {
       "act": 3,
       "level": 2,
-      "id": "act3.level2", "order": 12, "gameplayType": "single_rotation_stages",
+      "id": "act3.level2", "order": 13, "gameplayType": "single_rotation_stages",
       "title": "Level 3.2: Single Rotations (LL & RR)",
       "actName": "The Architect's Wing",
       "structureType": "avl",
@@ -180,7 +180,7 @@
     {
       "act": 3,
       "level": 3,
-      "id": "act3.level3", "order": 13, "gameplayType": "double_rotation_stages",
+      "id": "act3.level3", "order": 14, "gameplayType": "double_rotation_stages",
       "title": "Level 3.3: Double Rotations (LR & RL)",
       "actName": "The Architect's Wing",
       "structureType": "avl",
@@ -193,7 +193,7 @@
     {
       "act": 3,
       "level": 4,
-      "id": "act3.level4", "order": 14, "gameplayType": "avl_prediction",
+      "id": "act3.level4", "order": 15, "gameplayType": "avl_prediction",
       "title": "Level 3.4: Auto Mode and Prediction",
       "actName": "The Architect's Wing",
       "structureType": "avl",
@@ -206,7 +206,7 @@
     {
       "act": 3,
       "level": 5,
-      "id": "act3.level5", "order": 15, "gameplayType": "order_statistic_boss",
+      "id": "act3.level5", "order": 16, "gameplayType": "order_statistic_boss",
       "title": "Level 3.5: Boss: Order-Statistic Heist",
       "actName": "The Architect's Wing",
       "structureType": "avl",
@@ -219,7 +219,7 @@
     {
       "act": 4,
       "level": 1,
-      "id": "act4.level1", "order": 16, "gameplayType": "build_heap",
+      "id": "act4.level1", "order": 17, "gameplayType": "build_heap",
       "title": "Level 4.1: Activate the Vault",
       "actName": "The Heap Fortress",
       "structureType": "heap",
@@ -232,7 +232,7 @@
     {
       "act": 4,
       "level": 2,
-      "id": "act4.level2", "order": 17, "gameplayType": "heap_repair",
+      "id": "act4.level2", "order": 18, "gameplayType": "heap_repair",
       "title": "Level 4.2: Repair the Security Locks",
       "actName": "The Heap Fortress",
       "structureType": "heap",
@@ -245,7 +245,7 @@
     {
       "act": 4,
       "level": 3,
-      "id": "act4.level3", "order": 18, "gameplayType": "extract_max",
+      "id": "act4.level3", "order": 19, "gameplayType": "extract_max",
       "title": "Level 4.3: Extract the Greatest Treasure",
       "actName": "The Heap Fortress",
       "structureType": "heap",
@@ -258,7 +258,7 @@
     {
       "act": 4,
       "level": 4,
-      "id": "act4.level4", "order": 19, "gameplayType": "extraction_race",
+      "id": "act4.level4", "order": 20, "gameplayType": "extraction_race",
       "title": "Level 4.4: Race Against the Guards",
       "actName": "The Heap Fortress",
       "structureType": "heap",
@@ -271,7 +271,7 @@
     {
       "act": 4,
       "level": 5,
-      "id": "act4.level5", "order": 20, "gameplayType": "heap_sort",
+      "id": "act4.level5", "order": 21, "gameplayType": "heap_sort",
       "title": "Level 4.5: Final Vault Boss",
       "actName": "The Heap Fortress",
       "structureType": "heap",
@@ -285,7 +285,7 @@
       "act": 4,
       "level": 6,
       "id": "act4.level6",
-      "order": 21,
+      "order": 22,
       "title": "Level 4.6: Heap Warmup",
       "actName": "The Heap Fortress",
       "structureType": "heap",
@@ -300,7 +300,7 @@
       "act": 4,
       "level": 7,
       "id": "act4.level7",
-      "order": 22,
+      "order": 23,
       "title": "Level 4.7: Sift Repair Drill",
       "actName": "The Heap Fortress",
       "structureType": "heap",
@@ -316,7 +316,7 @@
       "act": 4,
       "level": 8,
       "id": "act4.level8",
-      "order": 23,
+      "order": 24,
       "title": "Level 4.8: Extraction Drill",
       "actName": "The Heap Fortress",
       "structureType": "heap",
@@ -332,7 +332,7 @@
       "act": 4,
       "level": 9,
       "id": "act4.level9",
-      "order": 24,
+      "order": 25,
       "title": "Level 4.9: Alarm Extraction Race",
       "actName": "The Heap Fortress",
       "structureType": "heap",
@@ -348,7 +348,7 @@
       "act": 4,
       "level": 10,
       "id": "act4.level10",
-      "order": 25,
+      "order": 26,
       "title": "Level 4.10: Sorting Vault",
       "actName": "The Heap Fortress",
       "structureType": "heap",

@@ -14,28 +14,29 @@ int main() {
     }
     printf("levelCount: %d\n", manager.levelCount);
     assert(ok);
+    assert(manager.levelCount == 26);
     assert(manager.findLevelIndexById("act1.level1") == 0);
-    assert(manager.findLevelIndexById("act4.level5") == 19);
+    assert(manager.findLevelIndexById("act4.level5") == 20);
 
     const LevelDef& traversal = manager.levels[0];
     assert(traversal.optimalSteps == 28);
     assert(traversal.alarmCapacity == 44);
     assert(strcmp(traversal.gameplayType, "traversal_stages") == 0);
 
-    const LevelDef& heapBuild = manager.levels[15];
+    const LevelDef& heapBuild = manager.levels[16];
     assert(heapBuild.optimalSteps == 3);
     assert(heapBuild.alarmCapacity == 7);
 
     // Test dynamically added 4.7 (repair) and 4.8 (extract_max)
     int idx7 = manager.findLevelIndexById("act4.level7");
-    assert(idx7 == 21);
+    assert(idx7 == 22);
     const LevelDef& lvl7 = manager.levels[idx7];
     assert(strcmp(lvl7.gameplayType, "heap_repair") == 0);
     assert(strcmp(lvl7.requiredAction, "repair") == 0);
     assert(lvl7.initialValueCount == 5);
 
     int idx8 = manager.findLevelIndexById("act4.level8");
-    assert(idx8 == 22);
+    assert(idx8 == 23);
     const LevelDef& lvl8 = manager.levels[idx8];
     assert(strcmp(lvl8.gameplayType, "extract_max") == 0);
     assert(strcmp(lvl8.requiredAction, "extract_max") == 0);
@@ -57,7 +58,7 @@ int main() {
     assert(heap.get(0) == 10);
     assert(act4.lvl43.activeHeapSize == 5);
 
-    assert(manager.loadLevel(9));
+    assert(manager.loadLevel(10));
     assert(manager.scoreSystem.optimalSteps == 28);
     assert(manager.scoreSystem.alarmCapacity == 44);
 

@@ -2,6 +2,7 @@
 #define BST_H
 
 #include <iostream>
+#include "../event.h"
 using namespace std;
 
 struct BSTNode {
@@ -20,6 +21,7 @@ class BST {
 private:
     BSTNode* root;
     int nextId;
+    mutable EventLog* eventLog;
 
     BSTNode* insertRecursive(BSTNode* node, int key, BSTNode* parentNode);
     BSTNode* deleteRecursive(BSTNode* node, int key);
@@ -34,8 +36,11 @@ private:
     void countHelper(BSTNode* node, int lo, int hi, int& count) const;
 
 public:
-    BST();
+    BST(EventLog* log = nullptr);
     ~BST();
+
+    void setEventLog(EventLog* log);
+    EventLog* getEventLog() const;
 
     void insert(int key);
     bool search(int key) const;

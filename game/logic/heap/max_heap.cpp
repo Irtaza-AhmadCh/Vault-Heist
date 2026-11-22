@@ -223,7 +223,7 @@ void MaxHeap::buildMaxHeap() {
         return;
     }
     if (eventLog != nullptr) {
-        eventLog->logHeapBuild(currentSize);
+        eventLog->logHeapBuild(currentSize, heapArray);
     }
     for (int i = (currentSize / 2) - 1; i >= 0; i--) {
         siftDown(i, currentSize);
@@ -320,7 +320,7 @@ void MaxHeap::heapSort() {
 
     if (eventLog != nullptr) {
         eventLog->logMarkSorted(0, heapArray[0]);
-        eventLog->logHeapSortComplete(totalElements);
+        eventLog->logHeapSortComplete(totalElements, heapArray);
     }
 }
 

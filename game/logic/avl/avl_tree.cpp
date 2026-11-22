@@ -179,12 +179,23 @@ AVLNode* AVLTree::insertRecursive(AVLNode* node, int key, int val, AVLNode* pare
     if (node == nullptr) {
         AVLNode* newNode = new AVLNode(key, val, nextId++);
         newNode->parent = parentNode;
+        if (eventLog != nullptr) {
+            int pId = parentNode ? parentNode->id : -1;
+            int side = (parentNode && key < parentNode->key) ? 0 : 1;
+            eventLog->logInsert(newNode->id, pId, side, key);
+        }
         return newNode;
     }
 
     if (key < node->key) {
+        if (eventLog != nullptr) {
+            eventLog->logCompare(node->id, node->key, "<");
+        }
         node->left = insertRecursive(node->left, key, val, node);
     } else if (key > node->key) {
+        if (eventLog != nullptr) {
+            eventLog->logCompare(node->id, node->key, ">");
+        }
         node->right = insertRecursive(node->right, key, val, node);
     } else {
         cout << "Duplicate key rejected in AVL: " << key << endl;
@@ -198,6 +209,9 @@ void AVLTree::insert(int key, int value) {
     root = insertRecursive(root, key, value, nullptr);
     if (root != nullptr) {
         root->parent = nullptr;
+    }
+    if (eventLog != nullptr) {
+        eventLog->logDone("AVL insertion complete");
     }
 }
 
@@ -217,25 +231,46 @@ AVLNode* AVLTree::deleteRecursive(AVLNode* node, int key) {
     }
 
     if (key < node->key) {
+        if (eventLog != nullptr) {
+            eventLog->logCompare(node->id, node->key, "<");
+        }
         node->left = deleteRecursive(node->left, key);
     } else if (key > node->key) {
+        if (eventLog != nullptr) {
+            eventLog->logCompare(node->id, node->key, ">");
+        }
         node->right = deleteRecursive(node->right, key);
     } else {
         if (node->left == nullptr && node->right == nullptr) {
+            if (eventLog != nullptr) {
+                int pId = node->parent ? node->parent->id : -1;
+                eventLog->logUnlink(node->id, pId, 0, node->key);
+            }
             delete node;
             return nullptr;
         } else if (node->left == nullptr) {
             AVLNode* temp = node->right;
             temp->parent = node->parent;
+            if (eventLog != nullptr) {
+                int pId = node->parent ? node->parent->id : -1;
+                eventLog->logUnlink(node->id, pId, 1, node->key);
+            }
             delete node;
             return temp;
         } else if (node->right == nullptr) {
             AVLNode* temp = node->left;
             temp->parent = node->parent;
+            if (eventLog != nullptr) {
+                int pId = node->parent ? node->parent->id : -1;
+                eventLog->logUnlink(node->id, pId, 0, node->key);
+            }
             delete node;
             return temp;
         } else {
             AVLNode* successor = findMin(node->right);
+            if (eventLog != nullptr) {
+                eventLog->logSwapValue(node->id, successor->id, node->key, successor->key);
+            }
             node->key = successor->key;
             node->value = successor->value;
             node->right = deleteRecursive(node->right, successor->key);
@@ -249,6 +284,9 @@ void AVLTree::deleteNode(int key) {
     root = deleteRecursive(root, key);
     if (root != nullptr) {
         root->parent = nullptr;
+    }
+    if (eventLog != nullptr) {
+        eventLog->logDone("AVL deletion complete");
     }
 }
 
@@ -279,13 +317,24 @@ void AVLTree::deleteRawNode(int key) {
 bool AVLTree::search(int key) const {
     AVLNode* curr = root;
     while (curr != nullptr) {
+        if (eventLog != nullptr) {
+            const char* res = (key == curr->key) ? "=" : (key < curr->key ? "<" : ">");
+            eventLog->logCompare(curr->id, curr->key, res);
+        }
         if (key == curr->key) {
+            if (eventLog != nullptr) {
+                eventLog->logVisit(curr->id, curr->key);
+                eventLog->logDone("Target key located in AVL!");
+            }
             return true;
         } else if (key < curr->key) {
             curr = curr->left;
         } else {
             curr = curr->right;
         }
+    }
+    if (eventLog != nullptr) {
+        eventLog->logDone("Target key not in AVL.");
     }
     return false;
 }

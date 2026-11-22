@@ -2,6 +2,7 @@
 #define GAME_SCREEN_H
 
 #include <SFML/Graphics.hpp>
+#include <SFML/Audio.hpp>
 #include <iostream>
 #include <cstdio>
 #include <cstdlib>
@@ -59,6 +60,9 @@ public:
     Act3Controller act3;
     Act4Controller act4;
 
+    // Event Log Side Panel (toggled with L key / button 207)
+    EventLogPanel eventLogPanel;
+
     static const int MAX_BUTTONS = 48;
     BioButton buttons[MAX_BUTTONS];
     int buttonCount;
@@ -72,6 +76,22 @@ public:
     bool isAct3StageTransitionPending;
     int pendingAct3StageLevel;
     float act3StageTransitionTimer;
+
+    // Background Audio & Settings
+    sf::Music bgMusic;
+    bool bgMusicMuted;
+    int bgMusicVolume;
+
+    void toggleAudioMute() {
+        bgMusicMuted = !bgMusicMuted;
+        if (bgMusicMuted) {
+            bgMusic.pause();
+        } else {
+            if (bgMusic.getStatus() != sf::Music::Playing) {
+                bgMusic.play();
+            }
+        }
+    }
 
     // Camera view panning & zoom
     sf::View cameraView;
@@ -126,6 +146,9 @@ public:
         cameraView.setCenter(viewCenter);
 
         inputBox = BioInputBox(410.0f, 58.0f, 50.0f, 28.0f, "50");
+
+        bgMusicMuted = false;
+        bgMusicVolume = 60;
     }
 
     void setScreenState(const char* st) {
@@ -252,30 +275,57 @@ public:
         // Load persistent savegame
         SaveManager::loadProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
 
+        // Background Ambient Music
+        bgMusicMuted = false;
+        bgMusicVolume = 60;
+        if (bgMusic.openFromFile("assets/sounds/dragon-studio-creepy-monster-growling-472378 (1).mp3")) {
+            bgMusic.setLoop(true);
+            bgMusic.setVolume(static_cast<float>(bgMusicVolume));
+            bgMusic.play();
+        } else {
+            std::cout << "[Audio] Note: Background sound could not be loaded." << std::endl;
+        }
+
         setupDefaultAct1Tree();
         setupButtons();
         return ok;
     }
 
-    void takeSnapshot() {
+    void playEvents(const EventLog& log) {
+        undoManager.recordActionEvents(log);
+        eventController.loadFromEventLog(log);
+        eventController.start();
+    }
+
+    void takeSnapshot(const char* desc = "") {
+        char buf[512] = {0};
         if (isAct("act_1")) {
-            // Snapshot of Binary Tree
-            int keys[32];
+            int keys[64];
             int n = 0;
             collectSnapshotKeys(binTree.root, keys, n);
-            undoManager.pushSnapshot("tree", keys, n, levelManager.scoreSystem.alarmSteps, levelManager.scoreSystem.currentScore);
+            SaveManager::serializeTree(binTree.root, buf, sizeof(buf));
+            undoManager.pushSnapshot("tree", buf, keys, n, levelManager.scoreSystem.alarmSteps, levelManager.scoreSystem.currentScore, desc);
         } else if (isAct("act_2")) {
-            int keys[32];
+            int keys[64];
             int n = 0;
             collectBSTKeys(bst.getRoot(), keys, n);
-            undoManager.pushSnapshot("bst", keys, n, levelManager.scoreSystem.alarmSteps, levelManager.scoreSystem.currentScore);
+            int off = 0;
+            for (int i = 0; i < n && off < 500; i++) {
+                off += snprintf(buf + off, sizeof(buf) - off, "%d ", keys[i]);
+            }
+            undoManager.pushSnapshot("bst", buf, keys, n, levelManager.scoreSystem.alarmSteps, levelManager.scoreSystem.currentScore, desc);
         } else if (isAct("act_3")) {
-            int keys[32];
+            int keys[64];
             int n = 0;
             collectAVLKeys(avl.getRoot(), keys, n);
-            undoManager.pushSnapshot("avl", keys, n, levelManager.scoreSystem.alarmSteps, levelManager.scoreSystem.currentScore);
+            int off = 0;
+            for (int i = 0; i < n && off < 500; i++) {
+                off += snprintf(buf + off, sizeof(buf) - off, "%d ", keys[i]);
+            }
+            undoManager.pushSnapshot("avl", buf, keys, n, levelManager.scoreSystem.alarmSteps, levelManager.scoreSystem.currentScore, desc);
         } else if (isAct("act_4")) {
-            undoManager.pushSnapshot("heap", heap.getArray(), heap.getSize(), levelManager.scoreSystem.alarmSteps, levelManager.scoreSystem.currentScore);
+            SaveManager::serializeHeap(heap.getArray(), heap.getSize(), buf, sizeof(buf));
+            undoManager.pushSnapshot("heap", buf, heap.getArray(), heap.getSize(), levelManager.scoreSystem.alarmSteps, levelManager.scoreSystem.currentScore, desc);
         }
     }
 
@@ -287,23 +337,55 @@ public:
         }
 
         if (strcmp(snap.structureType, "tree") == 0) {
-            setupDefaultAct1Tree();
+            binTree.destroyTree(binTree.root);
+            if (snap.serialized[0] != '\0') {
+                binTree.root = SaveManager::deserializeTree(snap.serialized);
+            } else {
+                setupDefaultAct1Tree();
+            }
+            syncBinaryTreeVisuals();
         } else if (strcmp(snap.structureType, "bst") == 0) {
             while (!bst.isEmpty()) bst.deleteNode(bst.getRoot()->key);
-            for (int i = 0; i < snap.keyCount; i++) bst.insert(snap.keys[i]);
+            for (int i = 0; i < snap.keyCount; i++) {
+                bst.insert(snap.keys[i]);
+            }
             syncBSTVisuals();
         } else if (strcmp(snap.structureType, "avl") == 0) {
             while (!avl.isEmpty()) avl.deleteNode(avl.getRoot()->key);
-            for (int i = 0; i < snap.keyCount; i++) avl.insert(snap.keys[i]);
+            for (int i = 0; i < snap.keyCount; i++) {
+                avl.insertRaw(snap.keys[i]);
+            }
             syncAVLVisuals();
         } else if (strcmp(snap.structureType, "heap") == 0) {
-            heap.buildMaxHeap(snap.keys, snap.keyCount);
+            int arr[64];
+            int n = 0;
+            if (snap.serialized[0] != '\0' && SaveManager::deserializeHeap(snap.serialized, arr, n, 64)) {
+                heap.loadRawArray(arr, n);
+            } else {
+                heap.loadRawArray(snap.keys, snap.keyCount);
+            }
             syncHeapVisuals();
         }
 
         levelManager.scoreSystem.alarmSteps = snap.alarmSteps;
         levelManager.scoreSystem.currentScore = snap.score;
+        selectedNodeIndex = -1;
         hud.setStatus("UNDO EXECUTED: Restored previous neural state.");
+    }
+
+    void handleReplay() {
+        if (undoManager.getLastActionLog().getCount() > 0) {
+            eventController.loadFromEventLog(undoManager.getLastActionLog());
+            eventController.replay();
+            hud.setStatus("REPLAY: Replaying recorded event sequence with scrubber.");
+        } else if (eventLog.getCount() > 0) {
+            undoManager.recordActionEvents(eventLog);
+            eventController.loadFromEventLog(eventLog);
+            eventController.replay();
+            hud.setStatus("REPLAY: Replaying recorded event sequence with scrubber.");
+        } else {
+            hud.setStatus("REPLAY: No recorded event sequence in buffer.");
+        }
     }
 
     void handleHint() {
@@ -321,23 +403,23 @@ public:
     }
 
     void collectSnapshotKeys(TreeNode* node, int* arr, int& count) {
-        if (node == nullptr || count >= 32) return;
+        if (node == nullptr || count >= 64) return;
         arr[count++] = node->data;
         collectSnapshotKeys(node->left, arr, count);
         collectSnapshotKeys(node->right, arr, count);
     }
 
     void collectBSTKeys(BSTNode* node, int* arr, int& count) {
-        if (node == nullptr || count >= 32) return;
+        if (node == nullptr || count >= 64) return;
+        arr[count++] = node->key;
         collectBSTKeys(node->left, arr, count);
-        if (count < 32) arr[count++] = node->key;
         collectBSTKeys(node->right, arr, count);
     }
 
     void collectAVLKeys(AVLNode* node, int* arr, int& count) {
-        if (node == nullptr || count >= 32) return;
+        if (node == nullptr || count >= 64) return;
+        arr[count++] = node->key;
         collectAVLKeys(node->left, arr, count);
-        if (count < 32) arr[count++] = node->key;
         collectAVLKeys(node->right, arr, count);
     }
 
@@ -469,6 +551,7 @@ public:
 
         setScreenState("level_play");
         setupButtons();
+        takeSnapshot("Level Start");
 
         char buf[160];
         snprintf(buf, sizeof(buf), "[%s] OBJECTIVE: %s", lvl->title, lvl->objective);
@@ -482,12 +565,12 @@ public:
         if (isScreen("menu")) {
             // Main Menu Buttons
             float bx = 490.0f;
-            float by = 260.0f;
+            float by = 245.0f;
             float bw = 300.0f;
-            float bh = 42.0f;
-            float bgap = 18.0f;
+            float bh = 40.0f;
+            float bgap = 14.0f;
 
-            buttons[buttonCount++] = BioButton(bx, by, bw, bh, "1. CAMPAIGN MODE (20 Levels)", 210, true);
+            buttons[buttonCount++] = BioButton(bx, by, bw, bh, "1. CAMPAIGN MODE", 210, true);
             by += bh + bgap;
             buttons[buttonCount++] = BioButton(bx, by, bw, bh, "2. SANDBOX MODE (Free Lab)", 211);
             by += bh + bgap;
@@ -495,7 +578,29 @@ public:
             by += bh + bgap;
             buttons[buttonCount++] = BioButton(bx, by, bw, bh, "4. ENDLESS SCOREBOARD", 214);
             by += bh + bgap;
-            buttons[buttonCount++] = BioButton(bx, by, bw, bh, "5. QUIT GAME", 213);
+            buttons[buttonCount++] = BioButton(bx, by, bw, bh, "5. SETTINGS (Audio)", 218);
+            by += bh + bgap;
+            buttons[buttonCount++] = BioButton(bx, by, bw, bh, "6. QUIT GAME", 213);
+            return;
+        }
+
+        if (isScreen("settings")) {
+            float bx = 490.0f;
+            float by = 340.0f;
+            float bw = 300.0f;
+            float bh = 42.0f;
+
+            if (bgMusicMuted) {
+                buttons[buttonCount++] = BioButton(bx, by, bw, bh, "UNMUTE AUDIO (M)", 220, true);
+            } else {
+                buttons[buttonCount++] = BioButton(bx, by, bw, bh, "MUTE AUDIO (M)", 220, false);
+            }
+            by += bh + 16.0f;
+
+            buttons[buttonCount++] = BioButton(bx, by, 140.0f, bh, "VOLUME -", 221);
+            buttons[buttonCount++] = BioButton(bx + 160.0f, by, 140.0f, bh, "VOLUME +", 222);
+
+            buttons[buttonCount++] = BioButton(540.0f, 620.0f, 200.0f, 38.0f, "< Back to Main Menu", 200);
             return;
         }
 
@@ -601,9 +706,15 @@ public:
 
         if (isScreen("level_play")) {
             buttons[buttonCount++] = BioButton(x1, row1Y, 82.0f, btnH, "< Map", 205);
-            x1 += 82.0f + gap * 2.0f;
+            x1 += 82.0f + gap;
+            buttons[buttonCount++] = BioButton(x1, row1Y, 78.0f, btnH, "Undo (Z)", 202);
+            x1 += 78.0f + gap;
+            buttons[buttonCount++] = BioButton(x1, row1Y, 84.0f, btnH, "Replay (R)", 206);
+            x1 += 84.0f + gap;
+            buttons[buttonCount++] = BioButton(x1, row1Y, 68.0f, btnH, "Log (L)", 207, eventLogPanel.isVisible);
+            x1 += 68.0f + gap * 2.0f;
         } else {
-            // Sandbox / Endless Mode: Full Act Switchers and Undo
+            // Sandbox / Endless Mode: Full Act Switchers, Undo, and Replay
             buttons[buttonCount++] = BioButton(x1, row1Y, 82.0f, btnH, "Act 1: Tree", 101, inAct1);
             x1 += 82.0f + gap;
             buttons[buttonCount++] = BioButton(x1, row1Y, 82.0f, btnH, "Act 2: BST", 102, inAct2);
@@ -613,7 +724,11 @@ public:
             buttons[buttonCount++] = BioButton(x1, row1Y, 82.0f, btnH, "Act 4: Heap", 104, inAct4);
             x1 += 82.0f + gap;
             buttons[buttonCount++] = BioButton(x1, row1Y, 78.0f, btnH, "Undo (Z)", 202);
-            x1 += 78.0f + gap * 2.0f;
+            x1 += 78.0f + gap;
+            buttons[buttonCount++] = BioButton(x1, row1Y, 84.0f, btnH, "Replay (R)", 206);
+            x1 += 84.0f + gap;
+            buttons[buttonCount++] = BioButton(x1, row1Y, 68.0f, btnH, "Log (L)", 207, eventLogPanel.isVisible);
+            x1 += 68.0f + gap * 2.0f;
         }
 
         // Input Box and +/- adjustments
@@ -1010,6 +1125,7 @@ public:
 
         syncBinaryTreeVisuals();
         inputBox.setValue(50);
+        takeSnapshot("Act 1 Default");
     }
 
     // Act 2: BST Setup
@@ -1029,6 +1145,7 @@ public:
 
         syncBSTVisuals();
         inputBox.setValue(60);
+        takeSnapshot("Act 2 Default");
     }
 
     // Act 3: AVL Tree Setup
@@ -1051,6 +1168,7 @@ public:
 
         syncAVLVisuals();
         inputBox.setValue(25);
+        takeSnapshot("Act 3 Default");
     }
 
     // Act 4: Max Heap Setup
@@ -1066,10 +1184,12 @@ public:
 
         syncHeapVisuals();
         inputBox.setValue(85);
+        takeSnapshot("Act 4 Default");
     }
 
     void handleSandboxRandomAction() {
         if (!isScreen("sandbox")) return;
+        takeSnapshot("Before Random");
         
         // Simple LCG random using existing endlessRng pattern
         unsigned int rng = static_cast<unsigned int>(time(nullptr));
@@ -1167,6 +1287,7 @@ public:
 
     void handleSandboxResetAction() {
         if (!isScreen("sandbox")) return;
+        takeSnapshot("Before Reset");
         
         eventController.clear();
         selectedNodeIndex = -1;
@@ -1760,8 +1881,7 @@ public:
             eventLog.logDone("BST insertion complete");
 
             syncBSTVisuals();
-            eventController.loadFromEventLog(eventLog);
-            eventController.start();
+            playEvents(eventLog);
 
             if (!isScreen("sandbox")) {
                 levelManager.scoreSystem.addAlarmStep(2);
@@ -1785,8 +1905,7 @@ public:
             avl.insert(val);
 
             syncAVLVisuals();
-            eventController.loadFromEventLog(eventLog);
-            eventController.start();
+            playEvents(eventLog);
 
             if (!isScreen("sandbox")) {
                 levelManager.scoreSystem.addAlarmStep(2);
@@ -1802,8 +1921,7 @@ public:
             heap.insert(val);
 
             syncHeapVisuals();
-            eventController.loadFromEventLog(eventLog);
-            eventController.start();
+            playEvents(eventLog);
 
             if (!isScreen("sandbox")) {
                 levelManager.scoreSystem.addAlarmStep(2);
@@ -1860,8 +1978,7 @@ public:
                 syncBSTVisuals();
                 selectedNodeIndex = -1;
 
-                eventController.loadFromEventLog(eventLog);
-                eventController.start();
+                playEvents(eventLog);
 
                 if (!isScreen("sandbox")) {
                     levelManager.scoreSystem.addAlarmStep(3);
@@ -1897,8 +2014,7 @@ public:
                 syncAVLVisuals();
                 selectedNodeIndex = -1;
 
-                eventController.loadFromEventLog(eventLog);
-                eventController.start();
+                playEvents(eventLog);
 
                 if (!isScreen("sandbox")) {
                     levelManager.scoreSystem.addAlarmStep(3);
@@ -1961,8 +2077,7 @@ public:
                 snprintf(buf, sizeof(buf), "SEARCH MISS: Key %d does not exist in BST.", targetKey);
                 hud.setStatus(buf, "Search reached dead-end leaf branch.");
             }
-            eventController.loadFromEventLog(eventLog);
-            eventController.start();
+            playEvents(eventLog);
         } else if (isAct("act_3")) {
             bool found = avl.search(targetKey);
             for (int i = 0; i < layout.nodeCount; i++) {
@@ -2090,6 +2205,7 @@ public:
 
     void runRotationDemo(const char* rotType) {
         if (!isAct("act_3")) return;
+        takeSnapshot("Before Rotation Demo");
         eventController.clear();
         selectedNodeIndex = -1;
 
@@ -2138,8 +2254,7 @@ public:
         }
 
         syncAVLVisuals();
-        eventController.loadFromEventLog(eventLog);
-        eventController.start();
+        playEvents(eventLog);
 
         if (isScreen("level_play") && strcmp(levelManager.playState, "victory") == 0) {
             SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
@@ -2274,8 +2389,7 @@ public:
         int maxVal = heap.extractMax();
 
         syncHeapVisuals();
-        eventController.loadFromEventLog(eventLog);
-        eventController.start();
+        playEvents(eventLog);
 
         if (!isScreen("sandbox")) {
             levelManager.scoreSystem.addAlarmStep(3);
@@ -2301,8 +2415,7 @@ public:
         heap.buildMaxHeap(rawArr, 8);
 
         syncHeapVisuals();
-        eventController.loadFromEventLog(eventLog);
-        eventController.start();
+        playEvents(eventLog);
 
         if (!isScreen("sandbox")) {
             levelManager.scoreSystem.addAlarmStep(4);
@@ -2329,8 +2442,7 @@ public:
         heap.heapSort();
 
         syncHeapVisuals();
-        eventController.loadFromEventLog(eventLog);
-        eventController.start();
+        playEvents(eventLog);
 
         if (!isScreen("sandbox")) {
             levelManager.scoreSystem.addAlarmStep(5);
@@ -2377,8 +2489,7 @@ public:
         heap.siftDown(0);
 
         syncHeapVisuals();
-        eventController.loadFromEventLog(eventLog);
-        eventController.start();
+        playEvents(eventLog);
 
         if (!isScreen("sandbox")) {
             levelManager.scoreSystem.addAlarmStep(2);
@@ -2403,8 +2514,7 @@ public:
         heap.siftUp(lastIdx);
 
         syncHeapVisuals();
-        eventController.loadFromEventLog(eventLog);
-        eventController.start();
+        playEvents(eventLog);
 
         if (!isScreen("sandbox")) {
             levelManager.scoreSystem.addAlarmStep(2);
@@ -2533,13 +2643,49 @@ public:
                 return;
             }
             finishEndlessOperation();
-            eventController.loadFromEventLog(eventLog); eventController.start();
+            playEvents(eventLog);
             hud.setStatus(endlessInsert ? "INSERT completed and AVL validated." : "DELETE completed and AVL validated.");
             return;
         } else if (actionId == 217) { // Quit endless run to menu
             recordEndlessScore();
             endlessOperationActive = false; endlessRepairing = false; endlessTimer = 0.0f;
             setScreenState("menu"); setupButtons();
+            return;
+        } else if (actionId == 218) { // Settings (Audio)
+            setScreenState("settings");
+            setupButtons();
+            hud.setStatus("SETTINGS: Configure background ambient audio.");
+            return;
+        } else if (actionId == 220) { // Toggle Audio Mute
+            toggleAudioMute();
+            setupButtons();
+            hud.setStatus(bgMusicMuted ? "AUDIO: Background music muted." : "AUDIO: Background music unmuted (playing).");
+            return;
+        } else if (actionId == 221) { // Volume Down
+            if (bgMusicVolume > 0) {
+                bgMusicVolume -= 10;
+                if (bgMusicVolume < 0) bgMusicVolume = 0;
+                bgMusic.setVolume(static_cast<float>(bgMusicVolume));
+                setupButtons();
+                char vMsg[64];
+                snprintf(vMsg, sizeof(vMsg), "AUDIO VOLUME: %d%%", bgMusicVolume);
+                hud.setStatus(vMsg);
+            }
+            return;
+        } else if (actionId == 222) { // Volume Up
+            if (bgMusicVolume < 100) {
+                bgMusicVolume += 10;
+                if (bgMusicVolume > 100) bgMusicVolume = 100;
+                bgMusic.setVolume(static_cast<float>(bgMusicVolume));
+                if (bgMusicMuted) {
+                    bgMusicMuted = false;
+                    bgMusic.play();
+                }
+                setupButtons();
+                char vMsg[64];
+                snprintf(vMsg, sizeof(vMsg), "AUDIO VOLUME: %d%%", bgMusicVolume);
+                hud.setStatus(vMsg);
+            }
             return;
         } else if (actionId == 213) { // Quit
             exit(0);
@@ -2552,6 +2698,13 @@ public:
             return;
         } else if (actionId == 202) { // Undo
             handleUndo();
+            return;
+        } else if (actionId == 206) { // Replay
+            handleReplay();
+            return;
+        } else if (actionId == 207) { // Toggle Event Log Panel
+            eventLogPanel.toggle();
+            setupButtons(); // refresh button active state
             return;
         } else if (actionId == 203) { // Next Level
             if (isScreen("level_play") && isAct("act_2") && act2.lvl25.stage == 2) {
@@ -2621,8 +2774,7 @@ public:
                 eventLog.clear();
                 buildPreorderEvents(layout.findRootIndex());
                 eventLog.logDone("Preorder traversal complete");
-                eventController.loadFromEventLog(eventLog);
-                eventController.start();
+                playEvents(eventLog);
                 if (!isScreen("sandbox")) {
                     levelManager.scoreSystem.addAlarmStep(layout.nodeCount);
                     levelManager.notifyAction("preorder", 0);
@@ -2641,8 +2793,7 @@ public:
                 eventLog.clear();
                 buildInorderEvents(layout.findRootIndex());
                 eventLog.logDone("Inorder traversal complete");
-                eventController.loadFromEventLog(eventLog);
-                eventController.start();
+                playEvents(eventLog);
                 if (!isScreen("sandbox")) {
                     levelManager.scoreSystem.addAlarmStep(layout.nodeCount);
                     levelManager.notifyAction("inorder", 0);
@@ -2661,8 +2812,7 @@ public:
                 eventLog.clear();
                 buildPostorderEvents(layout.findRootIndex());
                 eventLog.logDone("Postorder traversal complete");
-                eventController.loadFromEventLog(eventLog);
-                eventController.start();
+                playEvents(eventLog);
                 if (!isScreen("sandbox")) {
                     levelManager.scoreSystem.addAlarmStep(layout.nodeCount);
                     levelManager.notifyAction("postorder", 0);
@@ -2681,8 +2831,7 @@ public:
                 eventLog.clear();
                 buildLevelOrderEvents();
                 eventLog.logDone("Level-order traversal complete");
-                eventController.loadFromEventLog(eventLog);
-                eventController.start();
+                playEvents(eventLog);
                 if (!isScreen("sandbox")) {
                     levelManager.scoreSystem.addAlarmStep(layout.nodeCount);
                     levelManager.notifyAction("level_order", 0);
@@ -2778,8 +2927,7 @@ public:
                             int vIdx = findVisualNodeByKey(delKey);
                             if (vIdx != -1) eventLog.logUnlink(vIdx, -1, 0, delKey);
                             eventLog.logDone("Stage 1 (Leaf): Node 20 unlinked and removed");
-                            eventController.loadFromEventLog(eventLog);
-                            eventController.start();
+                            playEvents(eventLog);
 
                             if (bst.search(delKey)) bst.deleteNode(delKey);
                             syncBSTVisuals();
@@ -2792,8 +2940,7 @@ public:
                             if (vIdx != -1) eventLog.logUnlink(vIdx, -1, 0, delKey);
                             if (cIdx != -1) eventLog.logVisit(cIdx, 65);
                             eventLog.logDone("Stage 2 (One Child): Node 60 deleted, child 65 promoted to 70");
-                            eventController.loadFromEventLog(eventLog);
-                            eventController.start();
+                            playEvents(eventLog);
 
                             if (bst.search(delKey)) bst.deleteNode(delKey);
                             syncBSTVisuals();
@@ -2842,8 +2989,7 @@ public:
                             eventLog.logUnlink(n60, -1, 0, 50);
                         }
                         eventLog.logDone("Stage 3: Successor 60 swapped with root 50, original successor deleted");
-                        eventController.loadFromEventLog(eventLog);
-                        eventController.start();
+                        playEvents(eventLog);
 
                         if (bst.search(50)) bst.deleteNode(50);
                         syncBSTVisuals();
@@ -2884,8 +3030,7 @@ public:
                         eventLog.logHighlightSubtree(n80, "pruned_right");
                         eventLog.logDone("Range Raid [30, 65] with subtree pruning complete");
 
-                        eventController.loadFromEventLog(eventLog);
-                        eventController.start();
+                        playEvents(eventLog);
 
                         applyAct2RangeVisuals();
                         levelManager.notifyAction("range", 0);
@@ -3804,7 +3949,7 @@ public:
                     else if (correctGesture && strcmp(rotation, "RL") == 0) ok = avl.manualRotateRL(endlessRepairPivot);
                     if (ok) {
                         syncAVLVisualsAnimated();
-                        eventController.loadFromEventLog(eventLog); eventController.start();
+                        playEvents(eventLog);
                         if (avl.isBalanced()) {
                             finishEndlessOperation();
                             hud.setStatus("Rotation accepted. AVL validation passed; next operation ready.");
@@ -3901,13 +4046,22 @@ public:
                 eventController.stepBackward(layout);
             } else if (event.key.code == sf::Keyboard::Z) {
                 handleUndo();
+            } else if (event.key.code == sf::Keyboard::R) {
+                handleReplay();
             } else if (event.key.code == sf::Keyboard::H) {
                 handleHint();
+            } else if (event.key.code == sf::Keyboard::L) {
+                eventLogPanel.toggle();
+                setupButtons();
+            } else if (event.key.code == sf::Keyboard::M) {
+                toggleAudioMute();
+                setupButtons();
+                hud.setStatus(bgMusicMuted ? "AUDIO: Background music muted." : "AUDIO: Background music unmuted (playing).");
             } else if (event.key.code == sf::Keyboard::Escape) {
                 if (isScreen("level_play")) {
                     setScreenState("campaign_map");
                     setupButtons();
-                } else if (isScreen("campaign_map") || isScreen("sandbox") || isScreen("endless")) {
+                } else if (isScreen("campaign_map") || isScreen("sandbox") || isScreen("endless") || isScreen("settings") || isScreen("leaderboard") || isScreen("endless_menu")) {
                     if (isScreen("endless")) recordEndlessScore();
                     setScreenState("menu");
                     setupButtons();
@@ -4022,13 +4176,68 @@ public:
 
             sf::Text footer;
             footer.setFont(renderer.font);
-            footer.setString("Controls: Space: Pause | Left/Right: Step | Z: Undo | H: Hint | Esc: Menu | R: Reset Camera");
+            footer.setString("Controls: Space: Pause | Left/Right: Step | Z: Undo | H: Hint | M: Mute Audio | Esc: Menu | R: Reset Camera");
             footer.setCharacterSize(13);
             footer.setFillColor(sf::Color(140, 150, 170));
             sf::FloatRect fb = footer.getLocalBounds();
             footer.setOrigin(fb.left + fb.width * 0.5f, fb.top + fb.height * 0.5f);
             footer.setPosition(640.0f, 660.0f);
             window.draw(footer);
+            return;
+        }
+
+        if (isScreen("settings")) {
+            window.setView(defaultView);
+            sf::Text title;
+            title.setFont(renderer.font);
+            title.setCharacterSize(30);
+            title.setStyle(sf::Text::Bold);
+            title.setFillColor(sf::Color(64, 224, 208));
+            title.setString("SETTINGS - AUDIO CONTROL");
+            sf::FloatRect tb = title.getLocalBounds();
+            title.setOrigin(tb.left + tb.width * 0.5f, tb.top + tb.height * 0.5f);
+            title.setPosition(640.0f, 120.0f);
+            window.draw(title);
+
+            sf::Text desc;
+            desc.setFont(renderer.font);
+            desc.setCharacterSize(16);
+            desc.setFillColor(sf::Color(220, 235, 245));
+            desc.setString("Living Vault Ambient Sound: Creepy Monster Growling");
+            sf::FloatRect db = desc.getLocalBounds();
+            desc.setOrigin(db.left + db.width * 0.5f, db.top + db.height * 0.5f);
+            desc.setPosition(640.0f, 190.0f);
+            window.draw(desc);
+
+            sf::Text status;
+            status.setFont(renderer.font);
+            status.setCharacterSize(20);
+            status.setStyle(sf::Text::Bold);
+            if (bgMusicMuted) {
+                status.setFillColor(sf::Color(255, 90, 90));
+                status.setString("STATUS: MUTED (Press M or click below to unmute)");
+            } else {
+                status.setFillColor(sf::Color(100, 255, 120));
+                status.setString("STATUS: PLAYING (LOOPING)");
+            }
+            sf::FloatRect sb = status.getLocalBounds();
+            status.setOrigin(sb.left + sb.width * 0.5f, sb.top + sb.height * 0.5f);
+            status.setPosition(640.0f, 240.0f);
+            window.draw(status);
+
+            char volStr[64];
+            snprintf(volStr, sizeof(volStr), "CURRENT VOLUME: %d%%", bgMusicVolume);
+            sf::Text volText;
+            volText.setFont(renderer.font);
+            volText.setCharacterSize(18);
+            volText.setFillColor(sf::Color(255, 215, 0));
+            volText.setString(volStr);
+            sf::FloatRect vb = volText.getLocalBounds();
+            volText.setOrigin(vb.left + vb.width * 0.5f, vb.top + vb.height * 0.5f);
+            volText.setPosition(640.0f, 285.0f);
+            window.draw(volText);
+
+            for (int i = 0; i < buttonCount; ++i) buttons[i].render(window, renderer.font);
             return;
         }
 
@@ -4653,6 +4862,12 @@ public:
             stepMsg.setPosition(640.0f, 388.0f);
             window.draw(stepMsg);
         }
+
+        // ── Event Log Side Panel ──────────────────────────────────────────
+        // Always drawn in screen space (over everything else) so the camera
+        // position never shifts its coordinates.
+        window.setView(defaultView);
+        eventLogPanel.render(window, renderer.font, eventLog, eventController);
     }
 };
 

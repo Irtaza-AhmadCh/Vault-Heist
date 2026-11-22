@@ -1,5 +1,6 @@
 #pragma once
 #include <iostream>
+#include "../event.h"
 using namespace std;
 
 struct TreeNode {
@@ -62,9 +63,19 @@ struct SimpleQueue {
 class BinaryTree {
 public:
     TreeNode* root;
+    EventLog* eventLog;
 
-    BinaryTree() {
+    BinaryTree(EventLog* log = nullptr) {
         root = nullptr;
+        eventLog = log;
+    }
+
+    void setEventLog(EventLog* log) {
+        eventLog = log;
+    }
+
+    EventLog* getEventLog() const {
+        return eventLog;
     }
 
     ~BinaryTree() {
@@ -80,6 +91,9 @@ public:
 
     void preorder(TreeNode* node) {
         if (node == nullptr) return;
+        if (eventLog != nullptr) {
+            eventLog->logVisit(node->data, node->data);
+        }
         cout << node->data << " ";
         preorder(node->left);
         preorder(node->right);
@@ -88,6 +102,9 @@ public:
     void inorder(TreeNode* node) {
         if (node == nullptr) return;
         inorder(node->left);
+        if (eventLog != nullptr) {
+            eventLog->logVisit(node->data, node->data);
+        }
         cout << node->data << " ";
         inorder(node->right);
     }
@@ -96,6 +113,9 @@ public:
         if (node == nullptr) return;
         postorder(node->left);
         postorder(node->right);
+        if (eventLog != nullptr) {
+            eventLog->logVisit(node->data, node->data);
+        }
         cout << node->data << " ";
     }
 
@@ -105,6 +125,9 @@ public:
         q.enqueue(root);
         while (!q.isEmpty()) {
             TreeNode* current = q.dequeue();
+            if (eventLog != nullptr) {
+                eventLog->logVisit(current->data, current->data);
+            }
             cout << current->data << " ";
             if (current->left != nullptr) q.enqueue(current->left);
             if (current->right != nullptr) q.enqueue(current->right);
@@ -228,6 +251,9 @@ public:
 
     void mirror(TreeNode* node) {
         if (node == nullptr) return;
+        if (eventLog != nullptr && node->left != nullptr && node->right != nullptr) {
+            eventLog->logSwapValue(node->left->data, node->right->data, node->left->data, node->right->data);
+        }
         TreeNode* temp = node->left;
         node->left = node->right;
         node->right = temp;
