@@ -4,8 +4,45 @@
     {
       "type": "shell",
       "label": "Build Vault Heist (SFML 2.6.2)",
-      "command": "${workspaceFolder}\\build.bat",
-      "args": [],
+      "command": "g++",
+      "args": [
+        "-std=c++17",
+        "-I",
+        "${workspaceFolder}/docs/SFML-2.6.2-x64/SFML-2.6.2/include",
+        "-I",
+        "${workspaceFolder}/game",
+        "${workspaceFolder}/game/main.cpp",
+        "${workspaceFolder}/game/logic/bst/bst.cpp",
+        "${workspaceFolder}/game/logic/avl/avl_tree.cpp",
+        "${workspaceFolder}/game/logic/heap/max_heap.cpp",
+        "${workspaceFolder}/game/logic/event.cpp",
+        "${workspaceFolder}/game/controller/CampaignJson.cpp",
+        "${workspaceFolder}/game/controller/LevelManager.cpp",
+        "${workspaceFolder}/game/scoring/ScoreSystem.cpp",
+        "${workspaceFolder}/game/logic/SaveManager.cpp",
+        "${workspaceFolder}/game/controller/act1-2/Act1State.cpp",
+        "${workspaceFolder}/game/controller/act1-2/Act2State.cpp",
+        "${workspaceFolder}/game/controller/act3-4/Act3State.cpp",
+        "${workspaceFolder}/game/controller/act3-4/Act4State.cpp",
+        "-L",
+        "${workspaceFolder}/docs/SFML-2.6.2-x64/SFML-2.6.2/lib",
+        "-lsfml-graphics",
+        "-lsfml-window",
+        "-lsfml-audio",
+        "-lsfml-system",
+        "-static-libgcc",
+        "-static-libstdc++",
+        "-o",
+        "${workspaceFolder}/main.exe"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
       "group": {
         "kind": "build",
         "isDefault": true

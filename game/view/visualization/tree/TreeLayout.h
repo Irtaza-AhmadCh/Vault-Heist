@@ -9,6 +9,7 @@
 
 struct VisualNode {
     int key;
+    int nodeId;
     float x;
     float y;
     float targetX;
@@ -28,6 +29,7 @@ struct VisualNode {
 
     VisualNode() {
         key = 0;
+        nodeId = -1;
         x = 0.0f;
         y = 0.0f;
         targetX = 0.0f;
@@ -75,6 +77,7 @@ public:
     void clear() {
         for (int i = 0; i < MAX_NODES; i++) {
             nodes[i].active = false;
+            nodes[i].nodeId = -1;
             nodes[i].parentIndex = -1;
             nodes[i].leftChildIndex = -1;
             nodes[i].rightChildIndex = -1;

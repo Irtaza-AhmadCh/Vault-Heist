@@ -45,8 +45,8 @@ struct Level33State {
 // LEVEL 3.4: AUTO MODE AND PREDICTION
 // ============================================================================
 struct Level34State {
-    int sequence[8];             // {30, 20, 10, 25, 28}
-    int totalCount;              // 5
+    int sequence[16];            // Insertion sequence exercises no rotation and all four AVL cases.
+    int totalCount;              // Number of prediction steps.
     int currentIdx;              // index of value being predicted & inserted (0..4)
     char lastPrediction[16];     // "no_rotation", "ll", "rr", "lr", "rl"
     char actualRotation[16];

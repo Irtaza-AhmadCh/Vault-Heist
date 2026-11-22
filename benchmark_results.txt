@@ -1,0 +1,90 @@
+Vault Heist: The Living Vault - Headless Benchmark Report
+Compiler: GCC 15.2.0
+Build mode: optimized benchmark build (-O2); timing unit: microseconds; timing aggregation: median of 3.
+SFML/GUI: not linked. Event recording: disabled by passing nullptr to all benchmark structures.
+Random workloads use a fixed integer generator seed for repeatability. Data generation and correctness checks are outside timed regions.
+
+EXPERIMENT A: BST and AVL height (height is measured in nodes; empty tree = 0)
+n,pattern,inserted_keys,bst_height_nodes,avl_actual_nodes,avl_stored_height_nodes,avl_recomputed_height_nodes,avl_validator
+100,sorted,100,100,100,7,7,PASS
+100,random,100,16,100,8,8,PASS
+1000,sorted,1000,1000,1000,10,10,PASS
+1000,random,1000,21,1000,12,12,PASS
+10000,sorted,10000,10000,10000,14,14,PASS
+10000,random,10000,29,10000,16,16,PASS
+AVL checks: validator after each insertion; actual node count, BST order, parent links, balance, stored height and subtree size verified.
+
+EXPERIMENT B: 10000 searches per case; query domain [1,2n], so successful and unsuccessful searches are mixed.
+Comparison convention: one logical key-to-node comparison per visited node; failed searches count each visited node. Count pass is separate from timing.
+n,tree_input,structure,queries,successful_searches,average_key_comparisons,total_time_us_median_of_3,validation
+100,sorted,BST,10000,5040,75.035,1635.80,PASS
+100,sorted,AVL,10000,5040,6.392,158.50,PASS
+100,random,BST,10000,5040,7.632,207.50,PASS
+100,random,AVL,10000,5040,6.438,160.10,PASS
+1000,sorted,BST,10000,5003,748.716,28449.10,PASS
+1000,sorted,AVL,10000,5003,9.491,211.60,PASS
+1000,random,BST,10000,5003,11.620,320.90,PASS
+1000,random,AVL,10000,5003,10.092,247.70,PASS
+10000,sorted,BST,10000,5002,7510.614,382115.80,PASS
+10000,sorted,AVL,10000,5002,13.184,486.40,PASS
+10000,random,BST,10000,5002,11.731,482.40,PASS
+10000,random,AVL,10000,5002,13.788,427.70,PASS
+
+EXPERIMENT C: AVL rotation counts; one rotation means one primitive left/right rotation; a double case counts as two.
+Each input contains n unique keys. Delete workload removes n/2 existing keys from a fresh populated tree.
+n,pattern,insert_operations,insert_primitive_rotations,average_rotations_per_insert,delete_operations,delete_primitive_rotations,average_rotations_per_delete,max_primitive_rotations_per_delete,validation
+100,sorted,100,93,0.9300,50,2,0.0400,1,PASS
+100,random,100,79,0.7900,50,18,0.3600,2,PASS
+1000,sorted,1000,990,0.9900,500,4,0.0080,2,PASS
+1000,random,1000,655,0.6550,500,195,0.3900,4,PASS
+10000,sorted,10000,9986,0.9986,5000,7,0.0014,2,PASS
+10000,random,10000,6771,0.6771,5000,2064,0.4128,6,PASS
+
+EXPERIMENT D: same random unique key set and 1000 valid k queries; median of 3 runs, result equality checked.
+n,bst_inorder_scan_total_us,avl_kth_total_us,queries,results_match,validation
+100,82.50,30.70,1000,yes,PASS
+1000,752.40,53.80,1000,yes,PASS
+10000,44658.00,122.00,1000,yes,PASS
+
+EXPERIMENT E: project bottom-up MaxHeap::buildMaxHeap; fresh input and heap per run; median of 3.
+n,pattern,build_time_us_median_of_3,active_size,max_heap_validator
+100,random,0.90,100,PASS
+100,ordered_ascending,0.70,100,PASS
+1000,random,8.20,1000,PASS
+1000,ordered_ascending,6.00,1000,PASS
+10000,random,88.40,10000,PASS
+10000,ordered_ascending,61.90,10000,PASS
+
+EXPERIMENT F: project's MaxHeap::heapSort; value comparisons and swaps counted by the implementation; median of 3 timing runs.
+A comparison is one integer value comparison. A swap is one exchange of distinct array indexes. Count pass is separate from timing.
+n,pattern,execution_time_us_median_of_3,comparisons,swaps,sorted_and_preserved
+100,random_unique,4.20,1034,584,PASS
+100,sorted,3.80,1081,640,PASS
+100,reverse_sorted,3.10,944,516,PASS
+100,duplicate_heavy,3.60,1014,551,PASS
+1000,random_unique,72.90,16914,9180,PASS
+1000,sorted,60.60,17583,9708,PASS
+1000,reverse_sorted,58.80,15965,8316,PASS
+1000,duplicate_heavy,64.60,15779,8260,PASS
+10000,random_unique,976.10,236170,124963,PASS
+10000,sorted,702.30,244460,131956,PASS
+10000,reverse_sorted,721.20,226682,116696,PASS
+10000,duplicate_heavy,744.40,218997,113420,PASS
+
+EXPERIMENT G: Heap Sort compared with the sorting implementations already present in the benchmark (QuickSort, MergeSort, InsertionSort).
+All algorithms receive the same random permutation at each n. Timings are median of 3; counters are a separate pass.
+n,algorithm,time_us_median_of_3,comparisons,swaps_or_moves,auxiliary_space,time_complexity,correct
+100,HeapSort,4.10,1021,583,O(1),O(n log n),PASS
+100,QuickSort,2.20,705,253,O(log n) average; O(n) worst,O(n log n) average; O(n^2) worst,PASS
+100,MergeSort,4.00,537,1344,O(n),O(n log n),PASS
+100,InsertionSort,2.20,2640,2648,O(1),O(n^2),PASS
+1000,HeapSort,72.30,16883,9130,O(1),O(n log n),PASS
+1000,QuickSort,39.80,12057,4884,O(log n) average; O(n) worst,O(n log n) average; O(n^2) worst,PASS
+1000,MergeSort,64.60,8716,19952,O(n),O(n log n),PASS
+1000,InsertionSort,108.10,237672,237675,O(1),O(n^2),PASS
+10000,HeapSort,966.50,236022,124935,O(1),O(n log n),PASS
+10000,QuickSort,551.20,147691,68249,O(log n) average; O(n) worst,O(n log n) average; O(n^2) worst,PASS
+10000,MergeSort,801.90,120505,267232,O(n),O(n log n),PASS
+10000,InsertionSort,10109.00,23413975,23413980,O(1),O(n^2),PASS
+
+OVERALL_VALIDATION,PASS

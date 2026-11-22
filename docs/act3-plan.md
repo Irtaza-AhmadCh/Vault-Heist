@@ -392,8 +392,8 @@ For each value in the provided sequence:
 6. The model determines whether rebalancing is required and performs the appropriate rotation automatically.
 7. The renderer animates the insertion and any rotation.
 8. The game compares the player's prediction with the actual result.
-9. If the prediction is correct, continue to the next value.
-10. If the prediction is incorrect, add the prediction mistake cost and continue, provided the alarm has not reached capacity.
+9. If the prediction is correct, insert the key and continue to the next value.
+10. If the prediction is incorrect, leave the key pending and add one alarm step. The player may retry; reaching alarm capacity fails the level.
 
 ### Success condition
 
@@ -657,7 +657,7 @@ The core gameplay rules above have been decided for this specification. The rema
 1. **Exact level tree data:** Which exact starting tree values and shapes will be used in Levels 3.1–3.5? The AVL model and game flow can be implemented independently, but the final optimal-step numbers require fixed level configurations.
 2. **Level 3.2 packaging:** Should LL and RR appear as two separate short stages within Level 3.2, or as two consecutive repair tasks in one level screen?
 3. **Level 3.3 packaging:** Should LR and RL appear as two separate short stages within Level 3.3, or as two consecutive repair tasks in one level screen?
-4. **Level 3.4 sequence length:** How many values should the insertion sequence contain? Choose a short enough sequence that the player can predict each insertion without making the level tedious.
+4. **Level 3.4 sequence length (resolved):** Use `{30, 20, 10, 25, 28, 27, 40, 50, 5, 15, 35, 60, 55, 65, 1}` (15 insertions). This makes the tree larger while exercising no rotation and all four AVL rotation cases. With 15 optimal insertion steps, the existing alarm formula gives capacity 25. A wrong prediction leaves the key pending and costs one alarm step; repeated wrong predictions can fail the level.
 5. **Level 3.5 rank range:** Should the boss choose a fixed `k` for each configured level, or should the game select a valid `k` from the tree's node count? Either approach must ensure `1 <= k <= nodeCount`.
 6. **Prediction display:** Should the player choose the prediction from five labelled choices, or select a rotation diagram? The underlying accepted values remain `no_rotation`, `ll`, `rr`, `lr`, and `rl`.
 

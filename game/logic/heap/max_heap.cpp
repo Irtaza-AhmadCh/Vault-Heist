@@ -223,7 +223,7 @@ void MaxHeap::buildMaxHeap() {
         return;
     }
     if (eventLog != nullptr) {
-        eventLog->logHeapBuild(currentSize);
+        eventLog->logHeapBuild(currentSize, heapArray);
     }
     for (int i = (currentSize / 2) - 1; i >= 0; i--) {
         siftDown(i, currentSize);
@@ -320,7 +320,7 @@ void MaxHeap::heapSort() {
 
     if (eventLog != nullptr) {
         eventLog->logMarkSorted(0, heapArray[0]);
-        eventLog->logHeapSortComplete(totalElements);
+        eventLog->logHeapSortComplete(totalElements, heapArray);
     }
 }
 
@@ -346,7 +346,14 @@ bool MaxHeap::isMaxHeap(const int* arr, int n) {
     return true;
 }
 
-void MaxHeap::heapSort(int* arr, int n, EventLog* log) {
+void MaxHeap::heapSort(int* arr, int n, EventLog* log,
+                       long long* comparisons, long long* swaps) {
+    if (comparisons != nullptr) {
+        *comparisons = 0;
+    }
+    if (swaps != nullptr) {
+        *swaps = 0;
+    }
     if (arr == nullptr || n <= 1) {
         return;
     }
@@ -362,17 +369,20 @@ void MaxHeap::heapSort(int* arr, int n, EventLog* log) {
             int left = 2 * curr + 1;
             int right = 2 * curr + 2;
 
-            if (left < n && arr[left] > arr[largest]) {
-                largest = left;
+            if (left < n) {
+                if (comparisons != nullptr) ++(*comparisons);
+                if (arr[left] > arr[largest]) largest = left;
             }
-            if (right < n && arr[right] > arr[largest]) {
-                largest = right;
+            if (right < n) {
+                if (comparisons != nullptr) ++(*comparisons);
+                if (arr[right] > arr[largest]) largest = right;
             }
 
             if (largest != curr) {
                 int temp = arr[curr];
                 arr[curr] = arr[largest];
                 arr[largest] = temp;
+                if (swaps != nullptr) ++(*swaps);
                 if (log != nullptr) {
                     log->logHeapSwap(curr, largest, arr[largest], arr[curr]);
                 }
@@ -387,6 +397,7 @@ void MaxHeap::heapSort(int* arr, int n, EventLog* log) {
         int temp = arr[0];
         arr[0] = arr[i];
         arr[i] = temp;
+        if (swaps != nullptr) ++(*swaps);
 
         if (log != nullptr) {
             log->logHeapSwap(0, i, arr[i], arr[0]);
@@ -399,17 +410,20 @@ void MaxHeap::heapSort(int* arr, int n, EventLog* log) {
             int left = 2 * curr + 1;
             int right = 2 * curr + 2;
 
-            if (left < i && arr[left] > arr[largest]) {
-                largest = left;
+            if (left < i) {
+                if (comparisons != nullptr) ++(*comparisons);
+                if (arr[left] > arr[largest]) largest = left;
             }
-            if (right < i && arr[right] > arr[largest]) {
-                largest = right;
+            if (right < i) {
+                if (comparisons != nullptr) ++(*comparisons);
+                if (arr[right] > arr[largest]) largest = right;
             }
 
             if (largest != curr) {
                 int t = arr[curr];
                 arr[curr] = arr[largest];
                 arr[largest] = t;
+                if (swaps != nullptr) ++(*swaps);
                 if (log != nullptr) {
                     log->logHeapSwap(curr, largest, arr[largest], arr[curr]);
                 }

@@ -1,4 +1,4 @@
-# Vault Heist: The Living Vault - Project Context & State
+﻿# Vault Heist: The Living Vault - Project Context & State
 
 **Document Purpose:** Living reference of the project architecture, constraints, completed features, and implementation roadmap. Updated as work progresses so full codebase re-analysis is never needed.
 
@@ -19,8 +19,8 @@
 ---
 
 ## 2. Acts Status
-- **Act 1 (Blueprint Wing - Binary Tree):** ✅ Completed & Verified.
-- **Act 2 (Sorted Wing - BST):** ✅ **FULLY COMPLETED & VERIFIED (Levels 2.1 to 2.5)**
+- **Act 1 (Blueprint Wing - Binary Tree):** âœ… Completed & Verified.
+- **Act 2 (Sorted Wing - BST):** âœ… **FULLY COMPLETED & VERIFIED (Levels 2.1 to 2.5)**
   - **Level 2.3: Steal and Collapse (BST Deletion):**
     - 3 distinct stages, each starting with a fresh reconstructed BST from `[50, 30, 70, 20, 40, 60, 80, 65]`.
     - Stage 1: Leaf node (delete 20) with case identification ("Leaf Node").
@@ -34,34 +34,34 @@
     - Right pruning rule: `node.key >= hi` skips right subtree (subtree at 80 skipped at 0 alarm).
     - 6 visited nodes (50, 30, 40, 70, 60, 65) cost 6 alarm steps; results `[30, 40, 50, 60, 65]` (5 found); +150 pruning bonus awarded.
     - Dedicated on-screen Result Panel rendered showing matches, range, status, and pruned subtrees.
-  - Full test suite: `tests/test_act2_levels23_24.cpp` — ALL PASSED.
-- **Act 3 (Architect's Wing - AVL Tree):** ✅ **FULLY IMPLEMENTED & BUILDS CLEAN**
+  - Full test suite: `tests/test_act2_levels23_24.cpp` â€” ALL PASSED.
+- **Act 3 (Architect's Wing - AVL Tree):** âœ… **FULLY IMPLEMENTED & BUILDS CLEAN**
   - Specification source: `act3-plan.md`.
-  - `game/logic/avl/avl_tree.cpp` — Added: `findNode`, `insertRaw`, `manualRotateLeft`, `manualRotateRight`, `manualRotateLR`, `manualRotateRL`, `predictRotationOnInsert`.
-  - `game/controller/act3-4/Act3State.h` — All 5 level state structs + `Act3Controller` class.
-  - `game/controller/act3-4/Act3State.cpp` — Full implementation of all 5 level handlers.
-  - `build.bat` — Added `Act3State.cpp` to compile sources.
-  - `game/controller/LevelManager.cpp` — Updated Act 3 level definitions (correct titles, objectives, optimal steps, `requiredAction`).
-  - `levels/campaign_levels.json` — Synced with LevelManager.
-  - `game/view/GameScreen.h` — Wired: `#include Act3State.h`, `Act3Controller act3` member, `loadCampaignLevel()` Act 3 block, `setupButtons()` Act 3 campaign buttons (IDs 80–89), button click handlers (IDs 80–89), node click handlers for Levels 3.1 and 3.5.
+  - `game/logic/avl/avl_tree.cpp` â€” Added: `findNode`, `insertRaw`, `manualRotateLeft`, `manualRotateRight`, `manualRotateLR`, `manualRotateRL`, `predictRotationOnInsert`.
+  - `game/controller/act3-4/Act3State.h` â€” All 5 level state structs + `Act3Controller` class.
+  - `game/controller/act3-4/Act3State.cpp` â€” Full implementation of all 5 level handlers.
+  - `build.bat` â€” Added `Act3State.cpp` to compile sources.
+  - `game/controller/LevelManager.cpp` â€” Updated Act 3 level definitions (correct titles, objectives, optimal steps, `requiredAction`).
+  - `levels/campaign_levels.json` â€” Synced with LevelManager.
+  - `game/view/GameScreen.h` â€” Wired: `#include Act3State.h`, `Act3Controller act3` member, `loadCampaignLevel()` Act 3 block, `setupButtons()` Act 3 campaign buttons (IDs 80â€“89), button click handlers (IDs 80â€“89), node click handlers for Levels 3.1 and 3.5.
   - Input box suppressed for Act 3 campaign levels.
   - Node properties: `key`, `value`, `height` (leaves = 1), `size` (subtreeSize), `left`, `right`, `parent`.
-  - Balance Factor: BF = height(left) - height(right). Balanced if BF ∈ {-1, 0, 1}.
+  - Balance Factor: BF = height(left) - height(right). Balanced if BF âˆˆ {-1, 0, 1}.
   - Single rotations: LL (Right rotation), RR (Left rotation).
   - Double rotations: LR (Left on left child then Right on pivot), RL (Right on right child then Left on pivot).
   - Order statistics: `kth(k)` (k-th smallest), `convertedRank = nodeCount - k + 1` for k-th largest.
-- **Act 4 (Heap Fortress - Max Heap):** ✅ **FULLY IMPLEMENTED & BUILDS CLEAN** (Levels 4.1 to 4.5)
+- **Act 4 (Heap Fortress - Max Heap):** âœ… **FULLY IMPLEMENTED & BUILDS CLEAN** (Levels 4.1 to 4.5)
   - Specification source: `tests/act4.md`.
-  - **Level 4.1: Activate the Vault** — Bottom-up Max Heap construction on `[4, 10, 3, 5, 1]`. Optimal 3 steps, Alarm cap 7.
-  - **Level 4.2: Repair the Security Locks** — Round A (sift-down from disturbed root on `[4,10,3,5,1]`) + Round B (sift-up of inserted treasure 12 at index 5). Optimal 4 steps, Alarm cap 8.
-  - **Level 4.3: Extract the Greatest Treasure** — Repeated Extract-Max with player-guided sift-down heapify until all 5 elements sorted. Final: `[1,3,4,5,10]`. Optimal 8 steps, Alarm cap 14.
-  - **Level 4.4: Race Against the Guards** — 4 extraction rounds under alarm pressure on 6-element heap `[15,12,8,10,6,4]`. Shows complexity summary on completion. Optimal 7 steps, Alarm cap 13.
-  - **Level 4.5: Final Vault Boss** — Full independent Heap Sort on `[12,3,17,8,15,6,1]`. Phase A: Build Max Heap bottom-up. Phase B: Repeated extractions. Phase C: Validate ascending `[1,3,6,8,12,15,17]`. Emits `HEAP_SORT_COMPLETE`. Optimal 12 steps, Alarm cap 20.
+  - **Level 4.1: Activate the Vault** â€” Bottom-up Max Heap construction on `[4, 10, 3, 5, 1]`. Optimal 3 steps, Alarm cap 7.
+  - **Level 4.2: Repair the Security Locks** â€” Round A (sift-down from disturbed root on `[4,10,3,5,1]`) + Round B (sift-up of inserted treasure 12 at index 5). Optimal 4 steps, Alarm cap 8.
+  - **Level 4.3: Extract the Greatest Treasure** â€” Repeated Extract-Max with player-guided sift-down heapify until all 5 elements sorted. Final: `[1,3,4,5,10]`. Optimal 8 steps, Alarm cap 14.
+  - **Level 4.4: Race Against the Guards** â€” 4 extraction rounds under alarm pressure on 6-element heap `[15,12,8,10,6,4]`. Shows complexity summary on completion. Optimal 7 steps, Alarm cap 13.
+  - **Level 4.5: Final Vault Boss** â€” Full independent Heap Sort on `[12,3,17,8,15,6,1]`. Phase A: Build Max Heap bottom-up. Phase B: Repeated extractions. Phase C: Validate ascending `[1,3,6,8,12,15,17]`. Emits `HEAP_SORT_COMPLETE`. Optimal 12 steps, Alarm cap 20.
   - No -50 point penalty in Act 4. Invalid actions add +1 alarm step only.
   - Act 4 button IDs: 95 (Confirm Swap), 96 (No Swap Needed), 97 (Cancel), 110 (4.2 Confirm Round A), 111 (4.2 Move Up), 112 (4.3 Extract Max), 113 (4.3 Confirm Swap), 114 (4.4 Extract Max), 115 (4.4 Confirm Swap), 116 (4.5 Phase A Confirm), 117 (4.5 No Swap Needed), 118 (4.5 Phase B Extract), 119 (4.5 Phase B Confirm).
   - `setSize()`, `appendRaw()`, `isSortedAscending()` added to MaxHeap.
   - All 5 level state structs: `Level41State`...`Level45State` in `Act4State.h/.cpp`.
-  - Full test suite: `tests/test_act4_complete.cpp` — ALL PASSED.
+  - Full test suite: `tests/test_act4_complete.cpp` â€” ALL PASSED.
 
 ---
 
@@ -72,7 +72,7 @@
 | **3.1** | Read the Badges | Raw insert `{50, 30, 70, 20, 80, 10, 90}`. Direct click on 2 unbalanced nodes (30 [BF=+2], 70 [BF=-2]). | 2 | 5 | Selecting balanced or repeated node: +1 alarm step. |
 | **3.2** | Single Rotations | Two stages: Stage 0 = LL `{30, 20, 10}` -> Right rotate 30; Stage 1 = RR `{10, 20, 30}` -> Left rotate 10. | 2 | 5 | Wrong rotation: +2 alarm steps, -50 score. |
 | **3.3** | Double Rotations | Two stages: Stage 0 = LR `{30, 10, 20}` -> LR rotation; Stage 1 = RL `{10, 30, 20}` -> RL rotation. | 2 | 5 | Wrong case choice: +2 alarm steps, -50 score. |
-| **3.4** | Auto & Predict | Sequence `{30, 20, 10, 25, 28}`. Predict rotation before each insert (`no_rotation`, `ll`, `rr`, `lr`, `rl`), then model auto-rebalances. | 5 | 10 | Wrong prediction: +1 alarm step (no score penalty). |
+| **3.4** | Auto & Predict | Sequence `{30, 20, 10, 25, 28, 27, 40, 50, 5, 15, 35, 60, 55, 65, 1}`. Predict before each insert; the sequence exercises no rotation and all four AVL cases. | 15 | 25 | A wrong prediction leaves the key pending and costs +1 alarm step. Alarm breach fails the level. |
 | **3.5** | Boss: Order-Statistic | Phase A: Raw BST `{40, 20, 50, 10, 30, 60, 70}`. RR imbalance at 50 -> Left rotate 50. Phase B: Find 3rd largest ($k=3$, converted rank 5 -> pod 50) using `subtreeSize`. Path: 40 -> 60 -> 50. | 4 | 8 | Phase A wrong rot: +2 alarm, -50 score. Path visits: +1 alarm. Subtree size calculations: 0 alarm. |
 
 ---
@@ -82,4 +82,5 @@
 - `game/controller/act3-4/Act3State.h` / `Act3State.cpp`: Act 3 level controllers and state machines.
 - `game/view/GameScreen.h`: Main game screen coordinating UI, buttons, visual trees, click handling, and level progression.
 - `game/controller/LevelManager.cpp` / `levels/campaign_levels.json`: Campaign level definitions and progression.
-- `build.bat`: Project build script. Output binary: `main.exe`.
+- `.vscode/tasks.json`: Builds `game/main.cpp` and game sources into `main.exe`; `.vscode/launch.json` starts it.
+

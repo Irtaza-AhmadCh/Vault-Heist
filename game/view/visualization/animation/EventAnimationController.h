@@ -90,9 +90,13 @@ public:
             if (ev.type == nullptr) continue;
 
             if (strcmp(ev.type, EVENT_HEAP_SWAP) == 0) {
-                addStep(EventStep(EVENT_HEAP_SWAP, ev.nodeId, ev.parentId, ev.oldValue, ev.newValue, "", 0.45f));
+                addStep(EventStep(EVENT_HEAP_SWAP, ev.nodeId, ev.parentId, ev.oldValue, ev.newValue, ev.strExtra ? ev.strExtra : "sift", 0.45f));
             } else if (strcmp(ev.type, EVENT_COMPARE) == 0) {
-                addStep(EventStep(EVENT_COMPARE, ev.nodeId, ev.parentId, ev.oldValue, ev.newValue, "", 0.35f));
+                if (ev.strExtra != nullptr) {
+                    addStep(EventStep(EVENT_COMPARE, ev.nodeId, -1, ev.value, 0, ev.strExtra, 0.35f));
+                } else {
+                    addStep(EventStep(EVENT_COMPARE, ev.nodeId, ev.parentId, ev.oldValue, ev.newValue, "", 0.35f));
+                }
             } else if (strcmp(ev.type, EVENT_VISIT) == 0) {
                 addStep(EventStep(EVENT_VISIT, ev.nodeId, -1, ev.value, 0, "", 0.4f));
             } else if (strcmp(ev.type, EVENT_INSERT) == 0) {
@@ -140,6 +144,15 @@ public:
         }
     }
 
+    void replay() {
+        if (stepCount > 0) {
+            currentStepIndex = 0;
+            stepTimer = 0.0f;
+            isPlaying = true;
+            isPaused = false;
+        }
+    }
+
     void pause() {
         isPaused = true;
     }
@@ -167,21 +180,41 @@ public:
         else speedMultiplier = 0.5f;
     }
 
+    float getProgress() const {
+        if (stepCount <= 1) return (stepCount == 1) ? 1.0f : 0.0f;
+        return (float)currentStepIndex / (float)(stepCount - 1);
+    }
+
+    int getCurrentStep() const {
+        return currentStepIndex;
+    }
+
+    int getTotalSteps() const {
+        return stepCount;
+    }
+
+    int findVisualNodeByKey(const TreeLayoutEngine& layout, int key) const {
+        for (int i = 0; i < layout.nodeCount; i++) {
+            if (layout.nodes[i].active && layout.nodes[i].key == key) return i;
+        }
+        return -1;
+    }
+
     void applyStep(TreeLayoutEngine& layout, const EventStep& step) {
         if (strcmp(step.eventType, EVENT_HEAP_SWAP) == 0) {
             if (step.indexA >= 0 && step.indexA < layout.nodeCount) {
-                layout.nodes[step.indexA].setState("highlighted");
+                layout.nodes[step.indexA].setState("swapping");
                 layout.nodes[step.indexA].pulseTimer = 0.0f;
                 layout.nodes[step.indexA].key = step.valB;
             }
             if (step.indexB >= 0 && step.indexB < layout.nodeCount) {
-                layout.nodes[step.indexB].setState("highlighted");
+                layout.nodes[step.indexB].setState("swapping");
                 layout.nodes[step.indexB].pulseTimer = 0.0f;
                 layout.nodes[step.indexB].key = step.valA;
             }
             snprintf(currentDescription, sizeof(currentDescription),
-                     "HEAP SWAP: Exchanging pod [%d] (val %d) with pod [%d] (val %d)",
-                     step.indexA, step.valA, step.indexB, step.valB);
+                     "HEAP SWAP: Exchanging pod [%d] (val %d) with pod [%d] (val %d) [%s]",
+                     step.indexA, step.valA, step.indexB, step.valB, step.extraStr[0] ? step.extraStr : "sift");
         } else if (strcmp(step.eventType, EVENT_COMPARE) == 0) {
             if (step.indexA >= 0 && step.indexA < layout.nodeCount) {
                 layout.nodes[step.indexA].setState("searching");
@@ -189,9 +222,15 @@ public:
             if (step.indexB >= 0 && step.indexB < layout.nodeCount) {
                 layout.nodes[step.indexB].setState("searching");
             }
-            snprintf(currentDescription, sizeof(currentDescription),
-                     "COMPARE: Sifting comparison between pod [%d] and pod [%d]",
-                     step.indexA, step.indexB);
+            if (step.extraStr[0] != '\0') {
+                snprintf(currentDescription, sizeof(currentDescription),
+                         "COMPARE: Key %d at pod [%d] (Branch: %s)",
+                         step.valA, step.indexA, step.extraStr);
+            } else {
+                snprintf(currentDescription, sizeof(currentDescription),
+                         "COMPARE: Sifting comparison between pod [%d] and pod [%d]",
+                         step.indexA, step.indexB);
+            }
         } else if (strcmp(step.eventType, EVENT_VISIT) == 0) {
             if (step.indexA >= 0 && step.indexA < layout.nodeCount) {
                 layout.nodes[step.indexA].setState("highlighted");
@@ -201,9 +240,43 @@ public:
                      "VISIT: Impulsing pod [id %d, key %d]",
                      step.indexA, step.valA);
         } else if (strcmp(step.eventType, EVENT_INSERT) == 0) {
-            if (step.indexA >= 0 && step.indexA < layout.nodeCount) {
-                layout.nodes[step.indexA].setState("highlighted");
-                layout.nodes[step.indexA].pulseTimer = 0.0f;
+            int nodeIndex = findVisualNodeByKey(layout, step.valA);
+            if (nodeIndex == -1) {
+                nodeIndex = layout.allocateNode(step.valA);
+                if (nodeIndex != -1) {
+                    VisualNode& inserted = layout.nodes[nodeIndex];
+                    inserted.nodeId = step.indexA;
+                    inserted.setState("highlighted");
+                    inserted.pulseTimer = 0.0f;
+                    int parentIndex = -1;
+                    for (int i = 0; i < nodeIndex; i++) {
+                        if (layout.nodes[i].active && layout.nodes[i].nodeId == step.indexB) {
+                            parentIndex = i;
+                            break;
+                        }
+                    }
+                    if (parentIndex == -1 && step.indexB >= 0 && step.indexB < nodeIndex) {
+                        parentIndex = step.indexB;
+                    }
+                    if (parentIndex >= 0) {
+                        VisualNode& parent = layout.nodes[parentIndex];
+                        inserted.parentIndex = parentIndex;
+                        if (step.valB == 1) parent.leftChildIndex = nodeIndex;
+                        else parent.rightChildIndex = nodeIndex;
+                        const float direction = step.valB == 1 ? -1.0f : 1.0f;
+                        inserted.x = parent.x + direction * 150.0f;
+                        inserted.y = parent.y + 90.0f;
+                    } else {
+                        inserted.x = layout.canvasCenterX;
+                        inserted.y = layout.canvasTopY + 25.0f;
+                    }
+                    inserted.targetX = inserted.x;
+                    inserted.targetY = inserted.y;
+                }
+            }
+            if (nodeIndex >= 0 && nodeIndex < layout.nodeCount) {
+                layout.nodes[nodeIndex].setState("highlighted");
+                layout.nodes[nodeIndex].pulseTimer = 0.0f;
             }
             snprintf(currentDescription, sizeof(currentDescription),
                      "INSERT: Grafted pod with key %d into lattice",
@@ -228,8 +301,16 @@ public:
                      "SWAP VALUE: Successor swap (val %d <-> %d)",
                      step.valA, step.valB);
         } else if (strcmp(step.eventType, EVENT_ROTATE) == 0) {
-            if (step.indexA >= 0 && step.indexA < layout.nodeCount) {
-                layout.nodes[step.indexA].setState("highlighted");
+            int pivotIndex = -1;
+            for (int i = 0; i < layout.nodeCount; i++) {
+                if (layout.nodes[i].active && layout.nodes[i].nodeId == step.indexA) {
+                    pivotIndex = i;
+                    break;
+                }
+            }
+            if (pivotIndex == -1 && step.indexA >= 0 && step.indexA < layout.nodeCount) pivotIndex = step.indexA;
+            if (pivotIndex != -1) {
+                layout.nodes[pivotIndex].setState("highlighted");
             }
             snprintf(currentDescription, sizeof(currentDescription),
                      "AVL REBALANCE: %s rotation triggered at pivot pod [id %d]",
@@ -241,12 +322,28 @@ public:
             snprintf(currentDescription, sizeof(currentDescription),
                      "BALANCE ALERT: Imbalance detected (BF = %d) at pod [id %d]",
                      step.valA, step.indexA);
+        } else if (strcmp(step.eventType, EVENT_UPDATE_HEIGHT) == 0) {
+            if (step.indexA >= 0 && step.indexA < layout.nodeCount) {
+                layout.nodes[step.indexA].setState("highlighted");
+            }
+            snprintf(currentDescription, sizeof(currentDescription),
+                     "UPDATE HEIGHT: Pod [%d] height updated (%d -> %d)",
+                     step.indexA, step.valA, step.valB);
+        } else if (strcmp(step.eventType, EVENT_UPDATE_SIZE) == 0) {
+            if (step.indexA >= 0 && step.indexA < layout.nodeCount) {
+                layout.nodes[step.indexA].subtreeSize = step.valB;
+                layout.nodes[step.indexA].setState("highlighted");
+            }
+            snprintf(currentDescription, sizeof(currentDescription),
+                     "UPDATE SIZE: Pod [%d] subtree size updated (%d -> %d)",
+                     step.indexA, step.valA, step.valB);
         } else if (strcmp(step.eventType, EVENT_HIGHLIGHT_SUBTREE) == 0) {
             if (step.indexA >= 0 && step.indexA < layout.nodeCount) {
                 layout.nodes[step.indexA].setState("highlighted");
             }
             snprintf(currentDescription, sizeof(currentDescription),
-                     "HIGHLIGHT SUBTREE: Range branch active");
+                     "HIGHLIGHT SUBTREE: Range branch active [%s]",
+                     step.extraStr[0] ? step.extraStr : "tinted");
         } else if (strcmp(step.eventType, EVENT_MARK_SORTED) == 0) {
             if (step.indexA >= 0 && step.indexA < layout.nodeCount) {
                 layout.nodes[step.indexA].setState("sorted");
@@ -255,22 +352,66 @@ public:
                      "HEAP SORT: Element %d placed in final sorted position [%d]",
                      step.valA, step.indexA);
         } else if (strcmp(step.eventType, EVENT_EXTRACT_MAX) == 0) {
+            if (layout.nodeCount > 0) {
+                layout.nodes[0].setState("target");
+            }
             snprintf(currentDescription, sizeof(currentDescription),
                      "EXTRACT MAX: Priority root (val %d) retrieved from chamber",
                      step.valA);
         } else if (strcmp(step.eventType, EVENT_HEAP_BUILD) == 0) {
+            for (int i = 0; i < layout.nodeCount && i < step.valA; i++) {
+                layout.nodes[i].setState("searching");
+            }
             snprintf(currentDescription, sizeof(currentDescription),
-                     "BUILD HEAP: Initializing bottom-up heapification (%d elements)",
+                     "BUILD HEAP: Initializing bottom-up heapification (%d pods)",
                      step.valA);
-        } else if (strcmp(step.eventType, EVENT_HEAP_SORT_COMPLETE) == 0) {
+        } else if (strcmp(step.eventType, EVENT_HEAPIFY_START) == 0) {
+            if (step.indexA >= 0 && step.indexA < layout.nodeCount) {
+                layout.nodes[step.indexA].setState("target");
+            }
             snprintf(currentDescription, sizeof(currentDescription),
-                     "HEAP SORT COMPLETE: All %d elements sorted in ascending order",
+                     "HEAPIFY START: Sifting pod [%d] (region size %d)",
+                     step.indexA, step.valA);
+        } else if (strcmp(step.eventType, EVENT_HEAPIFY_DONE) == 0) {
+            if (step.indexA >= 0 && step.indexA < layout.nodeCount) {
+                layout.nodes[step.indexA].setState("normal");
+            }
+            snprintf(currentDescription, sizeof(currentDescription),
+                     "HEAPIFY DONE: Subtree at pod [%d] restored",
+                     step.indexA);
+        } else if (strcmp(step.eventType, EVENT_HEAP_SIZE_CHANGE) == 0) {
+            snprintf(currentDescription, sizeof(currentDescription),
+                     "HEAP SIZE CHANGE: Size adjusted (%d -> %d pods)",
+                     step.valA, step.valB);
+        } else if (strcmp(step.eventType, EVENT_HEAP_SORT_COMPLETE) == 0) {
+            for (int i = 0; i < layout.nodeCount; i++) {
+                if (layout.nodes[i].active) layout.nodes[i].setState("sorted");
+            }
+            snprintf(currentDescription, sizeof(currentDescription),
+                     "HEAP SORT COMPLETE: All %d elements sorted in ascending order!",
                      step.valA);
         } else if (strcmp(step.eventType, EVENT_DONE) == 0) {
             snprintf(currentDescription, sizeof(currentDescription),
                      "DONE: %s",
                      step.extraStr[0] ? step.extraStr : "Operation sequence complete.");
         }
+    }
+
+    void jumpToStep(int targetIndex, TreeLayoutEngine& layout) {
+        if (stepCount == 0) return;
+        if (targetIndex < 0) targetIndex = 0;
+        if (targetIndex >= stepCount) targetIndex = stepCount - 1;
+
+        for (int i = 0; i < layout.nodeCount; i++) {
+            if (layout.nodes[i].active) {
+                layout.nodes[i].setState("normal");
+            }
+        }
+        for (int i = 0; i <= targetIndex; i++) {
+            applyStep(layout, steps[i]);
+        }
+        currentStepIndex = targetIndex;
+        stepTimer = 0.0f;
     }
 
     void stepForward(TreeLayoutEngine& layout) {
@@ -285,12 +426,10 @@ public:
 
     void stepBackward(TreeLayoutEngine& layout) {
         if (currentStepIndex > 1) {
-            currentStepIndex -= 2;
-            applyStep(layout, steps[currentStepIndex]);
+            jumpToStep(currentStepIndex - 2, layout);
             currentStepIndex++;
         } else if (currentStepIndex == 1) {
-            currentStepIndex = 0;
-            applyStep(layout, steps[0]);
+            jumpToStep(0, layout);
             currentStepIndex = 1;
         }
     }

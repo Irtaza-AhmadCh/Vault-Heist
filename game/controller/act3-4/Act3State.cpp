@@ -52,11 +52,12 @@ void Act3Controller::initLevel(int levelNum, AVLTree* avlModel, ScoreSystem& sco
 
     } else if (levelNum == 4) {
         // Level 3.4: Auto Mode and Prediction
-        int seq[] = {30, 20, 10, 25, 28};
-        for (int i = 0; i < 5; i++) {
+        int seq[] = {30, 20, 10, 25, 28, 27, 40, 50, 5, 15, 35, 60, 55, 65, 1};
+        const int sequenceCount = static_cast<int>(sizeof(seq) / sizeof(seq[0]));
+        for (int i = 0; i < sequenceCount; i++) {
             lvl34.sequence[i] = seq[i];
         }
-        lvl34.totalCount = 5;
+        lvl34.totalCount = sequenceCount;
         lvl34.currentIdx = 0;
         lvl34.lastPrediction[0] = '\0';
         lvl34.actualRotation[0] = '\0';
@@ -267,7 +268,8 @@ bool Act3Controller::handleLevel33CaseSelect(const char* caseType, ScoreSystem& 
 // LEVEL 3.4 METHODS
 // ============================================================================
 bool Act3Controller::handleLevel34Prediction(const char* prediction, ScoreSystem& score, char* feedback, int maxLen) {
-    if (lvl34.isLevelComplete || currentAVL == nullptr) return false;
+    if (lvl34.isLevelComplete || currentAVL == nullptr || prediction == nullptr ||
+        lvl34.currentIdx < 0 || lvl34.currentIdx >= lvl34.totalCount || score.isAlarmBreached()) return false;
 
     int val = lvl34.sequence[lvl34.currentIdx];
     const char* expected = currentAVL->predictRotationOnInsert(val);
@@ -279,29 +281,38 @@ bool Act3Controller::handleLevel34Prediction(const char* prediction, ScoreSystem
     lvl34.lastWasCorrect = matches;
 
     if (!matches) {
-        score.addAlarmStep(1); // Incorrect prediction: +1 alarm step, no score deduction
+        score.addAlarmStep(1);
+        snprintf(lvl34.statusMsg, sizeof(lvl34.statusMsg),
+                 "INCORRECT PREDICTION: Key %d remains pending. Recheck the balance factors.", val);
+        if (score.isAlarmBreached()) {
+            snprintf(feedback, maxLen, "ALARM BREACHED: Incorrect predictions exhausted the alarm. Key %d was not inserted.", val);
+        } else {
+            snprintf(feedback, maxLen, "INCORRECT: Key %d was not inserted. Try again; +1 alarm step.", val);
+        }
+        return false;
     }
-    score.addAlarmStep(1); // 1 player step for the insertion action
+    score.addAlarmStep(1);
 
     // AVL model executes the insertion with autonomous rebalancing
     currentAVL->insert(val);
     lvl34.currentIdx++;
 
+    if (score.isAlarmBreached()) {
+        lvl34.isLevelComplete = false;
+        snprintf(lvl34.statusMsg, sizeof(lvl34.statusMsg),
+                 "ALARM BREACHED: Prediction errors exhausted the alarm capacity at insertion %d.", val);
+        snprintf(feedback, maxLen, "ALARM BREACHED: The vault locks before the sequence is complete.");
+        return matches;
+    }
+
     if (lvl34.currentIdx >= lvl34.totalCount) {
         lvl34.isLevelComplete = true;
-        if (matches) {
-            snprintf(feedback, maxLen, "VICTORY: Final prediction %s was correct! Inserted %d. Sequence complete!", prediction, val);
-        } else {
-            snprintf(feedback, maxLen, "LEVEL COMPLETE: Inserted %d (actual: %s). All 5 insertions completed!", val, expected);
-        }
+        snprintf(feedback, maxLen, "VICTORY: Correctly predicted %s and inserted %d. All %d insertions complete!",
+                 prediction, val, lvl34.totalCount);
     } else {
         int nextVal = lvl34.sequence[lvl34.currentIdx];
-        if (matches) {
-            snprintf(feedback, maxLen, "CORRECT: Predicted %s on inserting %d. Next key to predict: %d", prediction, val, nextVal);
-        } else {
-            snprintf(feedback, maxLen, "INCORRECT: Predicted %s, but inserting %d triggered %s (+1 Alarm). Next key: %d",
-                     prediction, val, expected, nextVal);
-        }
+        snprintf(feedback, maxLen, "CORRECT: Predicted %s on inserting %d. Next key to predict: %d",
+                 prediction, val, nextVal);
     }
     return matches;
 }

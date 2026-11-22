@@ -59,7 +59,8 @@ public:
 
     bool isMaxHeap() const;
     static bool isMaxHeap(const int* arr, int n);
-    static void heapSort(int* arr, int n, EventLog* log = nullptr);
+    static void heapSort(int* arr, int n, EventLog* log = nullptr,
+                         long long* comparisons = nullptr, long long* swaps = nullptr);
 
     void print() const;
 };

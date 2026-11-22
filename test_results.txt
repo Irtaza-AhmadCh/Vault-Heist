@@ -1,0 +1,32 @@
+Vault Heist data structure tests (headless)
+[PASS] BinaryTree preorder
+[PASS] BinaryTree inorder
+[PASS] BinaryTree postorder
+[PASS] BinaryTree level order
+[PASS] BinaryTree documented node height and edge height
+[PASS] BinaryTree diameter, LCA and path length
+[PASS] BinaryTree preorder/inorder reconstruction
+[PASS] BinaryTree postorder/inorder reconstruction
+[PASS] BST insert, duplicate rejection, search and validator
+[PASS] BST extrema and predecessor/successor
+[PASS] BST range count and LCA
+[PASS] BST leaf deletion
+[PASS] BST one-child deletion
+[PASS] BST two-child root deletion
+[PASS] BST missing-key deletion
+[PASS] AVL LL/RR/LR/RL rotation and balance
+[PASS] AVL height, size and parent metadata
+[PASS] AVL LL/RR/LR/RL rotation and balance
+[PASS] AVL height, size and parent metadata
+[PASS] AVL LL/RR/LR/RL rotation and balance
+[PASS] AVL height, size and parent metadata
+[PASS] AVL LL/RR/LR/RL rotation and balance
+[PASS] AVL height, size and parent metadata
+[PASS] AVL kth, rank and countInRange
+[PASS] AVL deletion and metadata validation
+[PASS] MaxHeap empty state
+[PASS] MaxHeap construction with duplicates and negative key
+[PASS] MaxHeap insertion
+[PASS] MaxHeap extraction maintains property and descending maxima
+[PASS] Heap Sort output including duplicates and negatives
+Passed: 30 Failed: 0

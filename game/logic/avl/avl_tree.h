@@ -22,6 +22,7 @@ private:
     AVLNode* root;
     int nextId;
     EventLog* eventLog;
+    int* primitiveRotationCount;
 
     int maxInt(int a, int b) const;
     void updateHeightAndSize(AVLNode* node);
@@ -40,7 +41,7 @@ private:
     bool validateRecursive(AVLNode* node, int minVal, int maxVal) const;
 
 public:
-    AVLTree(EventLog* log = nullptr);
+    AVLTree(EventLog* log = nullptr, int* rotationCount = nullptr);
     ~AVLTree();
 
     void setEventLog(EventLog* log);
@@ -74,6 +75,13 @@ public:
     bool manualRotateLR(int pivotKey);
     bool manualRotateRL(int pivotKey);
     const char* predictRotationOnInsert(int key) const;
+    bool serializeShape(char* buffer, int maxLen) const;
+    bool restoreShape(const char* buffer);
+
+private:
+    void serializeShapeRecursive(AVLNode* node, char* buffer, int maxLen, int& offset) const;
+    AVLNode* restoreShapeRecursive(const char*& cursor, AVLNode* parent, bool& valid);
+    void updateRestoredMetadata(AVLNode* node);
 };
 
 #endif

@@ -1,5 +1,7 @@
 #include "avl_tree.h"
 #include <iostream>
+#include <cstdio>
+#include <cstdlib>
 
 using namespace std;
 
@@ -25,10 +27,11 @@ AVLNode::AVLNode(int k, int val, int nodeId) {
     parent = nullptr;
 }
 
-AVLTree::AVLTree(EventLog* log) {
+AVLTree::AVLTree(EventLog* log, int* rotationCount) {
     root = nullptr;
     nextId = 1;
     eventLog = log;
+    primitiveRotationCount = rotationCount;
 }
 
 AVLTree::~AVLTree() {
@@ -93,6 +96,9 @@ void AVLTree::updateHeightAndSize(AVLNode* node) {
 }
 
 AVLNode* AVLTree::rotateLeft(AVLNode* x) {
+    if (primitiveRotationCount != nullptr) {
+        ++(*primitiveRotationCount);
+    }
     AVLNode* y = x->right;
     x->right = y->left;
     if (y->left != nullptr) {
@@ -114,6 +120,9 @@ AVLNode* AVLTree::rotateLeft(AVLNode* x) {
 }
 
 AVLNode* AVLTree::rotateRight(AVLNode* y) {
+    if (primitiveRotationCount != nullptr) {
+        ++(*primitiveRotationCount);
+    }
     AVLNode* x = y->left;
     y->left = x->right;
     if (x->right != nullptr) {
@@ -179,12 +188,23 @@ AVLNode* AVLTree::insertRecursive(AVLNode* node, int key, int val, AVLNode* pare
     if (node == nullptr) {
         AVLNode* newNode = new AVLNode(key, val, nextId++);
         newNode->parent = parentNode;
+        if (eventLog != nullptr) {
+            int pId = parentNode ? parentNode->id : -1;
+            int side = (parentNode && key < parentNode->key) ? 0 : 1;
+            eventLog->logInsert(newNode->id, pId, side, key);
+        }
         return newNode;
     }
 
     if (key < node->key) {
+        if (eventLog != nullptr) {
+            eventLog->logCompare(node->id, node->key, "<");
+        }
         node->left = insertRecursive(node->left, key, val, node);
     } else if (key > node->key) {
+        if (eventLog != nullptr) {
+            eventLog->logCompare(node->id, node->key, ">");
+        }
         node->right = insertRecursive(node->right, key, val, node);
     } else {
         cout << "Duplicate key rejected in AVL: " << key << endl;
@@ -198,6 +218,9 @@ void AVLTree::insert(int key, int value) {
     root = insertRecursive(root, key, value, nullptr);
     if (root != nullptr) {
         root->parent = nullptr;
+    }
+    if (eventLog != nullptr) {
+        eventLog->logDone("AVL insertion complete");
     }
 }
 
@@ -217,25 +240,46 @@ AVLNode* AVLTree::deleteRecursive(AVLNode* node, int key) {
     }
 
     if (key < node->key) {
+        if (eventLog != nullptr) {
+            eventLog->logCompare(node->id, node->key, "<");
+        }
         node->left = deleteRecursive(node->left, key);
     } else if (key > node->key) {
+        if (eventLog != nullptr) {
+            eventLog->logCompare(node->id, node->key, ">");
+        }
         node->right = deleteRecursive(node->right, key);
     } else {
         if (node->left == nullptr && node->right == nullptr) {
+            if (eventLog != nullptr) {
+                int pId = node->parent ? node->parent->id : -1;
+                eventLog->logUnlink(node->id, pId, 0, node->key);
+            }
             delete node;
             return nullptr;
         } else if (node->left == nullptr) {
             AVLNode* temp = node->right;
             temp->parent = node->parent;
+            if (eventLog != nullptr) {
+                int pId = node->parent ? node->parent->id : -1;
+                eventLog->logUnlink(node->id, pId, 1, node->key);
+            }
             delete node;
             return temp;
         } else if (node->right == nullptr) {
             AVLNode* temp = node->left;
             temp->parent = node->parent;
+            if (eventLog != nullptr) {
+                int pId = node->parent ? node->parent->id : -1;
+                eventLog->logUnlink(node->id, pId, 0, node->key);
+            }
             delete node;
             return temp;
         } else {
             AVLNode* successor = findMin(node->right);
+            if (eventLog != nullptr) {
+                eventLog->logSwapValue(node->id, successor->id, node->key, successor->key);
+            }
             node->key = successor->key;
             node->value = successor->value;
             node->right = deleteRecursive(node->right, successor->key);
@@ -249,6 +293,9 @@ void AVLTree::deleteNode(int key) {
     root = deleteRecursive(root, key);
     if (root != nullptr) {
         root->parent = nullptr;
+    }
+    if (eventLog != nullptr) {
+        eventLog->logDone("AVL deletion complete");
     }
 }
 
@@ -279,13 +326,24 @@ void AVLTree::deleteRawNode(int key) {
 bool AVLTree::search(int key) const {
     AVLNode* curr = root;
     while (curr != nullptr) {
+        if (eventLog != nullptr) {
+            const char* res = (key == curr->key) ? "=" : (key < curr->key ? "<" : ">");
+            eventLog->logCompare(curr->id, curr->key, res);
+        }
         if (key == curr->key) {
+            if (eventLog != nullptr) {
+                eventLog->logVisit(curr->id, curr->key);
+                eventLog->logDone("Target key located in AVL!");
+            }
             return true;
         } else if (key < curr->key) {
             curr = curr->left;
         } else {
             curr = curr->right;
         }
+    }
+    if (eventLog != nullptr) {
+        eventLog->logDone("Target key not in AVL.");
     }
     return false;
 }
@@ -600,6 +658,99 @@ const char* AVLTree::predictRotationOnInsert(int key) const {
         }
     }
     return "no_rotation";
+}
+
+void AVLTree::serializeShapeRecursive(AVLNode* node, char* buffer, int maxLen, int& offset) const {
+    if (offset >= maxLen - 1) return;
+    if (node == nullptr) {
+        int written = snprintf(buffer + offset, maxLen - offset, "#;");
+        if (written > 0) offset += written;
+        return;
+    }
+    int written = snprintf(buffer + offset, maxLen - offset, "%d:%d;", node->id, node->key);
+    if (written <= 0 || written >= maxLen - offset) {
+        offset = maxLen;
+        return;
+    }
+    offset += written;
+    serializeShapeRecursive(node->left, buffer, maxLen, offset);
+    serializeShapeRecursive(node->right, buffer, maxLen, offset);
+}
+
+bool AVLTree::serializeShape(char* buffer, int maxLen) const {
+    if (buffer == nullptr || maxLen <= 0) return false;
+    buffer[0] = '\0';
+    int offset = 0;
+    serializeShapeRecursive(root, buffer, maxLen, offset);
+    return offset < maxLen;
+}
+
+AVLNode* AVLTree::restoreShapeRecursive(const char*& cursor, AVLNode* parent, bool& valid) {
+    if (!valid || *cursor == '\0') {
+        valid = false;
+        return nullptr;
+    }
+    if (*cursor == '#') {
+        ++cursor;
+        if (*cursor != ';') valid = false;
+        else ++cursor;
+        return nullptr;
+    }
+
+    char* end = nullptr;
+    long nodeId = strtol(cursor, &end, 10);
+    if (end == cursor || *end != ':') {
+        valid = false;
+        return nullptr;
+    }
+    cursor = end + 1;
+    long nodeKey = strtol(cursor, &end, 10);
+    if (end == cursor || *end != ';') {
+        valid = false;
+        return nullptr;
+    }
+    cursor = end + 1;
+    if (nodeId < 0 || nodeId > 2147483647L || nodeKey < -2147483647L - 1L || nodeKey > 2147483647L) {
+        valid = false;
+        return nullptr;
+    }
+
+    AVLNode* node = new AVLNode(static_cast<int>(nodeKey), 0, static_cast<int>(nodeId));
+    node->parent = parent;
+    if (node->id >= nextId) nextId = node->id + 1;
+    node->left = restoreShapeRecursive(cursor, node, valid);
+    node->right = restoreShapeRecursive(cursor, node, valid);
+    if (!valid) {
+        clearRecursive(node);
+        return nullptr;
+    }
+    return node;
+}
+
+void AVLTree::updateRestoredMetadata(AVLNode* node) {
+    if (node == nullptr) return;
+    updateRestoredMetadata(node->left);
+    updateRestoredMetadata(node->right);
+    node->height = 1 + maxInt(height(node->left), height(node->right));
+    node->size = 1 + subtreeSize(node->left) + subtreeSize(node->right);
+}
+
+bool AVLTree::restoreShape(const char* buffer) {
+    if (buffer == nullptr || buffer[0] == '\0') return false;
+    const char* cursor = buffer;
+    bool valid = true;
+    int oldNextId = nextId;
+    nextId = 1;
+    AVLNode* restoredRoot = restoreShapeRecursive(cursor, nullptr, valid);
+    if (!valid || *cursor != '\0') {
+        clearRecursive(restoredRoot);
+        nextId = oldNextId;
+        return false;
+    }
+    clearRecursive(root);
+    root = restoredRoot;
+    updateRestoredMetadata(root);
+    return true;
 }
 
 

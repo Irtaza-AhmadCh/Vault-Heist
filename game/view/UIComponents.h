@@ -385,4 +385,202 @@ public:
     }
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// EventLogPanel  –  right-side overlay showing live event log + scrubber bar
+// Toggle with L key or toolbar button ID 207. Drawn in screen (default) view.
+// ─────────────────────────────────────────────────────────────────────────────
+struct EventLogPanel {
+    bool isVisible;
+    float x, y, width, height;
+    static const int MAX_VISIBLE = 20;
+
+    EventLogPanel()
+        : isVisible(false), x(982.0f), y(58.0f), width(293.0f), height(622.0f) {}
+
+    void toggle() { isVisible = !isVisible; }
+
+    // Color-code each event category for quick scanning
+    sf::Color getEventColor(const char* evType) const {
+        if (!evType) return sf::Color(200, 200, 200);
+        if (strncmp(evType, "visit",          5) == 0) return sf::Color( 64, 255, 128);
+        if (strncmp(evType, "compare",        7) == 0) return sf::Color(255, 220,  50);
+        if (strncmp(evType, "insert",         6) == 0) return sf::Color( 80, 180, 255);
+        if (strncmp(evType, "unlink",         6) == 0) return sf::Color(255, 100, 100);
+        if (strncmp(evType, "swap_value",    10) == 0) return sf::Color(255, 150,  50);
+        if (strncmp(evType, "swap",           4) == 0) return sf::Color(255, 150,  50);
+        if (strncmp(evType, "rotate",         6) == 0) return sf::Color(220,  80, 255);
+        if (strncmp(evType, "balance_alert", 13) == 0) return sf::Color(255,  80, 180);
+        if (strncmp(evType, "update_height", 13) == 0) return sf::Color(140, 200, 255);
+        if (strncmp(evType, "update_size",   11) == 0) return sf::Color(140, 200, 255);
+        if (strncmp(evType, "highlight",      9) == 0) return sf::Color(100, 255, 220);
+        if (strncmp(evType, "heapify",        7) == 0) return sf::Color(  0, 180, 220);
+        if (strncmp(evType, "heap_sort",      9) == 0) return sf::Color( 64, 255, 200);
+        if (strncmp(evType, "heap_size",      9) == 0) return sf::Color(  0, 200, 255);
+        if (strncmp(evType, "heap_build",    10) == 0) return sf::Color(  0, 220, 255);
+        if (strncmp(evType, "heap",           4) == 0) return sf::Color(  0, 220, 255);
+        if (strncmp(evType, "extract_max",   11) == 0) return sf::Color(255, 200,   0);
+        if (strncmp(evType, "mark_sorted",   11) == 0) return sf::Color( 64, 255,  64);
+        if (strncmp(evType, "done",           4) == 0) return sf::Color(160, 180, 180);
+        return sf::Color(180, 200, 200);
+    }
+
+    void render(sf::RenderWindow& window, sf::Font& font,
+                const EventLog& log, const EventAnimationController& anim) const {
+        if (!isVisible) return;
+
+        // ── Panel background ──────────────────────────────────────────────
+        sf::RectangleShape bg(sf::Vector2f(width, height));
+        bg.setPosition(x, y);
+        bg.setFillColor(sf::Color(10, 8, 20, 235));
+        bg.setOutlineColor(sf::Color(0, 150, 150, 200));
+        bg.setOutlineThickness(2.0f);
+        window.draw(bg);
+
+        // ── Title bar ─────────────────────────────────────────────────────
+        sf::RectangleShape titleBar(sf::Vector2f(width, 26.0f));
+        titleBar.setPosition(x, y);
+        titleBar.setFillColor(sf::Color(0, 55, 65, 245));
+        window.draw(titleBar);
+
+        sf::Text titleTxt;
+        titleTxt.setFont(font);
+        char titleBuf[64];
+        snprintf(titleBuf, sizeof(titleBuf), " EVENT LOG  [%d events]", log.getCount());
+        titleTxt.setString(titleBuf);
+        titleTxt.setCharacterSize(12);
+        titleTxt.setStyle(sf::Text::Bold);
+        titleTxt.setFillColor(sf::Color(64, 224, 208));
+        titleTxt.setPosition(x + 4.0f, y + 5.0f);
+        window.draw(titleTxt);
+
+        float cy = y + 30.0f; // current Y drawing cursor
+
+        // ── Current animation description ─────────────────────────────────
+        if (anim.currentDescription[0] != '\0') {
+            sf::RectangleShape descBar(sf::Vector2f(width, 28.0f));
+            descBar.setPosition(x, cy);
+            descBar.setFillColor(sf::Color(5, 30, 42, 220));
+            descBar.setOutlineColor(sf::Color(0, 90, 100, 150));
+            descBar.setOutlineThickness(1.0f);
+            window.draw(descBar);
+
+            sf::Text descTxt;
+            descTxt.setFont(font);
+            descTxt.setString(anim.currentDescription);
+            descTxt.setCharacterSize(11);
+            descTxt.setFillColor(sf::Color(220, 240, 255));
+            descTxt.setPosition(x + 6.0f, cy + 6.0f);
+            window.draw(descTxt);
+            cy += 32.0f;
+        }
+
+        // ── Scrubber bar ──────────────────────────────────────────────────
+        {
+            sf::RectangleShape scrubBg(sf::Vector2f(width - 12.0f, 8.0f));
+            scrubBg.setPosition(x + 6.0f, cy);
+            scrubBg.setFillColor(sf::Color(28, 18, 38, 220));
+            scrubBg.setOutlineColor(sf::Color(55, 75, 85));
+            scrubBg.setOutlineThickness(1.0f);
+            window.draw(scrubBg);
+
+            float progress = anim.getProgress();
+            if (progress > 0.001f) {
+                float fillW = (width - 12.0f) * progress;
+                if (fillW < 1.0f) fillW = 1.0f;
+                sf::RectangleShape scrubFill(sf::Vector2f(fillW, 8.0f));
+                scrubFill.setPosition(x + 6.0f, cy);
+                scrubFill.setFillColor(sf::Color(0, 200, 180, 220));
+                window.draw(scrubFill);
+            }
+
+            // Scrubber knob
+            if (anim.getTotalSteps() > 0) {
+                float progress2 = anim.getProgress();
+                float kx = x + 6.0f + (width - 12.0f) * progress2 - 4.0f;
+                sf::RectangleShape knob(sf::Vector2f(8.0f, 14.0f));
+                knob.setPosition(kx, cy - 3.0f);
+                knob.setFillColor(sf::Color(0, 230, 210));
+                window.draw(knob);
+            }
+
+            cy += 12.0f;
+
+            sf::Text stepTxt;
+            stepTxt.setFont(font);
+            char stepBuf[40];
+            snprintf(stepBuf, sizeof(stepBuf), " Step %d / %d",
+                     anim.getCurrentStep(), anim.getTotalSteps());
+            stepTxt.setString(stepBuf);
+            stepTxt.setCharacterSize(11);
+            stepTxt.setFillColor(sf::Color(140, 195, 195));
+            stepTxt.setPosition(x + 2.0f, cy);
+            window.draw(stepTxt);
+            cy += 16.0f;
+        }
+
+        // ── Divider ───────────────────────────────────────────────────────
+        sf::RectangleShape divider(sf::Vector2f(width - 8.0f, 1.0f));
+        divider.setPosition(x + 4.0f, cy);
+        divider.setFillColor(sf::Color(0, 100, 100, 160));
+        window.draw(divider);
+        cy += 5.0f;
+
+        // ── Event list (most recent MAX_VISIBLE entries) ───────────────────
+        int total = log.getCount();
+        int startIdx = (total > MAX_VISIBLE) ? (total - MAX_VISIBLE) : 0;
+        int currentAnimStep = anim.getCurrentStep();
+
+        for (int i = startIdx; i < total; i++) {
+            if (cy >= y + height - 20.0f) break;
+
+            Event ev = log.getEvent(i);
+            if (ev.type == nullptr) continue;
+
+            // Highlight the row matching current animation step
+            bool isCurrent = (i == currentAnimStep - 1 || i == currentAnimStep);
+            if (isCurrent) {
+                sf::RectangleShape hl(sf::Vector2f(width - 4.0f, 16.0f));
+                hl.setPosition(x + 2.0f, cy - 1.0f);
+                hl.setFillColor(sf::Color(0, 75, 90, 190));
+                window.draw(hl);
+            }
+
+            char evBuf[88];
+            if (ev.nodeId >= 0 && ev.value != 0) {
+                snprintf(evBuf, sizeof(evBuf), "[%2d] %-15s n=%-3d v=%d",
+                         i + 1, ev.type, ev.nodeId, ev.value);
+            } else if (ev.nodeId >= 0) {
+                snprintf(evBuf, sizeof(evBuf), "[%2d] %-15s n=%d",
+                         i + 1, ev.type, ev.nodeId);
+            } else {
+                snprintf(evBuf, sizeof(evBuf), "[%2d] %-15s", i + 1, ev.type);
+            }
+
+            sf::Text evTxt;
+            evTxt.setFont(font);
+            evTxt.setString(evBuf);
+            evTxt.setCharacterSize(11);
+            evTxt.setFillColor(isCurrent ? sf::Color::White : getEventColor(ev.type));
+            evTxt.setPosition(x + 6.0f, cy);
+            window.draw(evTxt);
+
+            cy += 16.0f;
+        }
+
+        // ── Footer hint ───────────────────────────────────────────────────
+        sf::RectangleShape footBar(sf::Vector2f(width, 18.0f));
+        footBar.setPosition(x, y + height - 18.0f);
+        footBar.setFillColor(sf::Color(0, 40, 50, 230));
+        window.draw(footBar);
+
+        sf::Text footTxt;
+        footTxt.setFont(font);
+        footTxt.setString(" L=Toggle  Z=Undo  R=Replay  SPACE=Pause");
+        footTxt.setCharacterSize(10);
+        footTxt.setFillColor(sf::Color(90, 150, 150));
+        footTxt.setPosition(x + 2.0f, y + height - 15.0f);
+        window.draw(footTxt);
+    }
+};
+
 #endif

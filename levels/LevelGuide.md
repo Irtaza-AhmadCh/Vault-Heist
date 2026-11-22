@@ -1,4 +1,4 @@
-# Vault Heist — Level Configuration Guide (Phase 4)
+﻿# Vault Heist â€” Level Configuration Guide (Phase 4)
 
 This guide documents the data-driven level architecture and provides instructions for creating, configuring, and testing new levels in **Vault Heist: The Living Vault**.
 
@@ -118,4 +118,5 @@ When adding or modifying a level, set `"requiredAction"` to one of the following
 2. Add a new object with a unique `id`, contiguous `order`, supported `gameplayType`, and the logical map fields required by that type.
 3. Keep the campaign at or below `MAX_CAMPAIGN_LEVELS` (32).
 4. Do not enter `optimalSteps` or `alarmCapacity`; `LevelManager` computes both from the map.
-5. Run `build.bat` and the campaign configuration test.
+5. In VS Code, use the Vault Heist launch configuration (F5) to build and start the game from `game/main.cpp`.
+

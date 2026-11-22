@@ -2,8 +2,10 @@
 #define GAME_SCREEN_H
 
 #include <SFML/Graphics.hpp>
+#include <SFML/Audio.hpp>
 #include <iostream>
 #include <cstdio>
+#include <cstddef>
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
@@ -59,6 +61,9 @@ public:
     Act3Controller act3;
     Act4Controller act4;
 
+    // Event Log Side Panel (toggled with L key / button 207)
+    EventLogPanel eventLogPanel;
+
     static const int MAX_BUTTONS = 48;
     BioButton buttons[MAX_BUTTONS];
     int buttonCount;
@@ -72,6 +77,24 @@ public:
     bool isAct3StageTransitionPending;
     int pendingAct3StageLevel;
     float act3StageTransitionTimer;
+    bool replayPlaybackPending;
+    bool postActionCapturePending;
+
+    // Background Audio & Settings
+    sf::Music bgMusic;
+    bool bgMusicMuted;
+    int bgMusicVolume;
+
+    void toggleAudioMute() {
+        bgMusicMuted = !bgMusicMuted;
+        if (bgMusicMuted) {
+            bgMusic.pause();
+        } else {
+            if (bgMusic.getStatus() != sf::Music::Playing) {
+                bgMusic.play();
+            }
+        }
+    }
 
     // Camera view panning & zoom
     sf::View cameraView;
@@ -111,6 +134,8 @@ public:
         isAct3StageTransitionPending = false;
         pendingAct3StageLevel = 0;
         act3StageTransitionTimer = 0.0f;
+        replayPlaybackPending = false;
+        postActionCapturePending = false;
         endlessTimer = 0.0f;
         endlessWave = 1;
         endlessElapsed = 0.0f; endlessDeadline = 10.0f; endlessSeed = 1; endlessRng = 1;
@@ -126,6 +151,9 @@ public:
         cameraView.setCenter(viewCenter);
 
         inputBox = BioInputBox(410.0f, 58.0f, 50.0f, 28.0f, "50");
+
+        bgMusicMuted = false;
+        bgMusicVolume = 60;
     }
 
     void setScreenState(const char* st) {
@@ -252,58 +280,277 @@ public:
         // Load persistent savegame
         SaveManager::loadProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
 
+        // Background Ambient Music
+        bgMusicMuted = false;
+        bgMusicVolume = 60;
+        if (bgMusic.openFromFile("assets/sounds/dragon-studio-creepy-monster-growling-472378 (1).mp3")) {
+            bgMusic.setLoop(true);
+            bgMusic.setVolume(static_cast<float>(bgMusicVolume));
+            bgMusic.play();
+        } else {
+            std::cout << "[Audio] Note: Background sound could not be loaded." << std::endl;
+        }
+
         setupDefaultAct1Tree();
         setupButtons();
         return ok;
     }
 
-    void takeSnapshot() {
+    void playEvents(const EventLog& log) {
+        undoManager.recordActionEvents(log);
+        TreeSnapshot afterAction;
+        captureCurrentSnapshot(afterAction, "After Action");
+        undoManager.setReplaySnapshot(afterAction);
+        eventController.loadFromEventLog(log);
+        eventController.start();
+    }
+
+    void takeSnapshot(const char* desc = "") {
+        if (replayPlaybackPending) finishReplayPlayback();
+        undoManager.clearLastActionEvents();
+        undoManager.clearReplayState();
+        TreeSnapshot snapshot;
+        captureCurrentSnapshot(snapshot, desc);
+        if (snapshot.structureType[0] != '\0') undoManager.pushSnapshot(snapshot);
+        postActionCapturePending = snapshot.structureType[0] != '\0';
+    }
+
+    void captureCurrentSnapshot(TreeSnapshot& snapshot, const char* desc = "") {
+        char buf[512] = {0};
         if (isAct("act_1")) {
-            // Snapshot of Binary Tree
-            int keys[32];
+            int keys[64];
             int n = 0;
             collectSnapshotKeys(binTree.root, keys, n);
-            undoManager.pushSnapshot("tree", keys, n, levelManager.scoreSystem.alarmSteps, levelManager.scoreSystem.currentScore);
+            SaveManager::serializeTree(binTree.root, buf, sizeof(buf));
+            snapshot.set("tree", buf, keys, n, levelManager.scoreSystem.alarmSteps, levelManager.scoreSystem.currentScore, desc);
         } else if (isAct("act_2")) {
-            int keys[32];
+            int keys[64];
             int n = 0;
             collectBSTKeys(bst.getRoot(), keys, n);
-            undoManager.pushSnapshot("bst", keys, n, levelManager.scoreSystem.alarmSteps, levelManager.scoreSystem.currentScore);
+            int off = 0;
+            for (int i = 0; i < n && off < 500; i++) {
+                off += snprintf(buf + off, sizeof(buf) - off, "%d ", keys[i]);
+            }
+            snapshot.set("bst", buf, keys, n, levelManager.scoreSystem.alarmSteps, levelManager.scoreSystem.currentScore, desc);
         } else if (isAct("act_3")) {
-            int keys[32];
+            int keys[64];
             int n = 0;
             collectAVLKeys(avl.getRoot(), keys, n);
-            undoManager.pushSnapshot("avl", keys, n, levelManager.scoreSystem.alarmSteps, levelManager.scoreSystem.currentScore);
+            avl.serializeShape(buf, sizeof(buf));
+            snapshot.set("avl", buf, keys, n, levelManager.scoreSystem.alarmSteps, levelManager.scoreSystem.currentScore, desc);
         } else if (isAct("act_4")) {
-            undoManager.pushSnapshot("heap", heap.getArray(), heap.getSize(), levelManager.scoreSystem.alarmSteps, levelManager.scoreSystem.currentScore);
+            SaveManager::serializeHeap(heap.getArray(), heap.getSize(), buf, sizeof(buf));
+            snapshot.set("heap", buf, heap.getArray(), heap.getSize(), levelManager.scoreSystem.alarmSteps, levelManager.scoreSystem.currentScore, desc);
+        }
+        captureLevelSnapshotState(snapshot);
+    }
+
+    void captureLevelSnapshotState(TreeSnapshot& snapshot) {
+        LevelDef* lvl = levelManager.getCurrentLevel();
+        if (!isScreen("level_play") || lvl == nullptr) return;
+        if (isAct("act_1")) {
+            if (lvl->levelNumber == 1) snapshot.setControllerState("act1_11", &act1.lvl11, sizeof(act1.lvl11));
+            else if (lvl->levelNumber == 2) snapshot.setControllerState("act1_12", &act1.lvl12, sizeof(act1.lvl12));
+            else if (lvl->levelNumber == 3) snapshot.setControllerState("act1_13", &act1.lvl13, sizeof(act1.lvl13));
+            else if (lvl->levelNumber == 4) snapshot.setControllerState("act1_14", &act1.lvl14, sizeof(act1.lvl14));
+            else if (lvl->levelNumber == 5) snapshot.setControllerState("act1_15", &act1.lvl15, sizeof(act1.lvl15));
+        } else if (isAct("act_2")) {
+            if (lvl->levelNumber == 1) snapshot.setControllerState("act2_21", &act2.lvl21, sizeof(act2.lvl21));
+            else if (lvl->levelNumber == 2) snapshot.setControllerState("act2_22", &act2.lvl22, sizeof(act2.lvl22));
+            else if (lvl->levelNumber == 3) snapshot.setControllerState("act2_23", &act2.lvl23, sizeof(act2.lvl23));
+            else if (lvl->levelNumber == 4) snapshot.setControllerState("act2_24", &act2.lvl24, sizeof(act2.lvl24));
+            else if (lvl->levelNumber == 5) {
+                const int prefixSize = static_cast<int>(offsetof(Level25State, avlTree));
+                snapshot.setControllerState("act2_25", &act2.lvl25, prefixSize);
+            }
+        } else if (isAct("act_3")) {
+            if (lvl->levelNumber == 1) snapshot.setControllerState("act3_31", &act3.lvl31, sizeof(act3.lvl31));
+            else if (lvl->levelNumber == 2) snapshot.setControllerState("act3_32", &act3.lvl32, sizeof(act3.lvl32));
+            else if (lvl->levelNumber == 3) snapshot.setControllerState("act3_33", &act3.lvl33, sizeof(act3.lvl33));
+            else if (lvl->levelNumber == 4) snapshot.setControllerState("act3_34", &act3.lvl34, sizeof(act3.lvl34));
+            else if (lvl->levelNumber == 5) snapshot.setControllerState("act3_35", &act3.lvl35, sizeof(act3.lvl35));
+        } else if (isAct("act_4")) {
+            if (lvl->levelNumber == 1) snapshot.setControllerState("act4_41", &act4.lvl41, sizeof(act4.lvl41));
+            else if (lvl->levelNumber == 2) snapshot.setControllerState("act4_42", &act4.lvl42, sizeof(act4.lvl42));
+            else if (lvl->levelNumber == 3) snapshot.setControllerState("act4_43", &act4.lvl43, sizeof(act4.lvl43));
+            else if (lvl->levelNumber == 4) snapshot.setControllerState("act4_44", &act4.lvl44, sizeof(act4.lvl44));
+            else if (lvl->levelNumber == 5) snapshot.setControllerState("act4_45", &act4.lvl45, sizeof(act4.lvl45));
+        }
+    }
+
+    void restoreLevelSnapshotState(const TreeSnapshot& snap) {
+        if (snap.controllerStateSize <= 0) return;
+        const char* type = snap.controllerStateType;
+#define RESTORE_LEVEL_STATE(tag, target) \
+        if (strcmp(type, tag) == 0 && snap.controllerStateSize == static_cast<int>(sizeof(target))) { \
+            memcpy(&(target), snap.controllerState, sizeof(target)); \
+            return; \
+        }
+        RESTORE_LEVEL_STATE("act1_11", act1.lvl11)
+        RESTORE_LEVEL_STATE("act1_12", act1.lvl12)
+        RESTORE_LEVEL_STATE("act1_13", act1.lvl13)
+        RESTORE_LEVEL_STATE("act1_14", act1.lvl14)
+        RESTORE_LEVEL_STATE("act1_15", act1.lvl15)
+        RESTORE_LEVEL_STATE("act2_21", act2.lvl21)
+        RESTORE_LEVEL_STATE("act2_22", act2.lvl22)
+        RESTORE_LEVEL_STATE("act2_23", act2.lvl23)
+        RESTORE_LEVEL_STATE("act2_24", act2.lvl24)
+        RESTORE_LEVEL_STATE("act3_31", act3.lvl31)
+        RESTORE_LEVEL_STATE("act3_32", act3.lvl32)
+        RESTORE_LEVEL_STATE("act3_33", act3.lvl33)
+        RESTORE_LEVEL_STATE("act3_34", act3.lvl34)
+        RESTORE_LEVEL_STATE("act3_35", act3.lvl35)
+        RESTORE_LEVEL_STATE("act4_41", act4.lvl41)
+        RESTORE_LEVEL_STATE("act4_42", act4.lvl42)
+        RESTORE_LEVEL_STATE("act4_43", act4.lvl43)
+        RESTORE_LEVEL_STATE("act4_44", act4.lvl44)
+        RESTORE_LEVEL_STATE("act4_45", act4.lvl45)
+#undef RESTORE_LEVEL_STATE
+        if (strcmp(type, "act2_25") == 0 && snap.controllerStateSize == static_cast<int>(offsetof(Level25State, avlTree))) {
+            memcpy(&act2.lvl25, snap.controllerState, snap.controllerStateSize);
         }
     }
 
     void handleUndo() {
+        postActionCapturePending = false;
+        if (replayPlaybackPending) finishReplayPlayback();
+        TreeSnapshot currentState;
+        captureCurrentSnapshot(currentState, "Action Result");
+        if (currentState.structureType[0] != '\0') undoManager.setReplaySnapshot(currentState);
         TreeSnapshot snap;
         if (!undoManager.popSnapshot(snap)) {
             hud.setStatus("UNDO: No previous snapshots in buffer.");
             return;
         }
 
+        undoManager.setUndoneSnapshot(snap);
+        restoreSnapshot(snap);
+        eventController.clear();
+        replayPlaybackPending = false;
+        hud.setStatus("UNDO EXECUTED: Restored previous neural state.");
+    }
+
+    void restoreSnapshot(const TreeSnapshot& snap) {
         if (strcmp(snap.structureType, "tree") == 0) {
-            setupDefaultAct1Tree();
+            binTree.destroyTree(binTree.root);
+            if (snap.serialized[0] != '\0') {
+                binTree.root = SaveManager::deserializeTree(snap.serialized);
+            } else {
+                setupDefaultAct1Tree();
+            }
         } else if (strcmp(snap.structureType, "bst") == 0) {
             while (!bst.isEmpty()) bst.deleteNode(bst.getRoot()->key);
-            for (int i = 0; i < snap.keyCount; i++) bst.insert(snap.keys[i]);
-            syncBSTVisuals();
+            for (int i = 0; i < snap.keyCount; i++) {
+                bst.insert(snap.keys[i]);
+            }
         } else if (strcmp(snap.structureType, "avl") == 0) {
-            while (!avl.isEmpty()) avl.deleteNode(avl.getRoot()->key);
-            for (int i = 0; i < snap.keyCount; i++) avl.insert(snap.keys[i]);
-            syncAVLVisuals();
+            if (!avl.restoreShape(snap.serialized)) {
+                while (!avl.isEmpty()) avl.deleteNode(avl.getRoot()->key);
+                for (int i = 0; i < snap.keyCount; i++) avl.insertRaw(snap.keys[i]);
+            }
         } else if (strcmp(snap.structureType, "heap") == 0) {
-            heap.buildMaxHeap(snap.keys, snap.keyCount);
-            syncHeapVisuals();
+            int arr[64];
+            int n = 0;
+            if (snap.serialized[0] != '\0' && SaveManager::deserializeHeap(snap.serialized, arr, n, 64)) {
+                heap.loadRawArray(arr, n);
+            } else {
+                heap.loadRawArray(snap.keys, snap.keyCount);
+            }
         }
+
+        restoreLevelSnapshotState(snap);
+        if (strcmp(snap.structureType, "tree") == 0) {
+            LevelDef* lvl = levelManager.getCurrentLevel();
+            if (isScreen("level_play") && isAct("act_1") && lvl != nullptr && lvl->levelNumber == 2) {
+                if (act1.lvl12.currentStage == 0) {
+                    int pre[7] = {50, 25, 12, 37, 75, 62, 88};
+                    int in[7] = {12, 25, 37, 50, 62, 75, 88};
+                    act1.targetTree.reconstructFromPreIn(pre, in, 7);
+                } else {
+                    int post[7] = {10, 30, 20, 50, 70, 60, 40};
+                    int in[7] = {10, 20, 30, 40, 50, 60, 70};
+                    act1.targetTree.reconstructFromPostIn(post, in, 7);
+                }
+                syncReconVisuals();
+            } else syncBinaryTreeVisuals();
+        } else if (strcmp(snap.structureType, "bst") == 0) syncBSTVisuals();
+        else if (strcmp(snap.structureType, "avl") == 0) {
+            syncAVLVisuals();
+            isAct3StageTransitionPending = false;
+            pendingAct3StageLevel = 0;
+        } else if (strcmp(snap.structureType, "heap") == 0) syncHeapVisuals();
 
         levelManager.scoreSystem.alarmSteps = snap.alarmSteps;
         levelManager.scoreSystem.currentScore = snap.score;
-        hud.setStatus("UNDO EXECUTED: Restored previous neural state.");
+        selectedNodeIndex = -1;
+    }
+
+    void handleReplay() {
+        postActionCapturePending = false;
+        TreeSnapshot afterAction;
+        TreeSnapshot beforeAction;
+        const bool replayAfterUndo = undoManager.getUndoneSnapshot(beforeAction) &&
+                                     undoManager.getReplaySnapshot(afterAction);
+        const EventLog& log = undoManager.getLastActionLog();
+
+        if (replayAfterUndo) {
+            restoreSnapshot(beforeAction);
+            if (log.getCount() > 0) {
+                eventController.loadFromEventLog(log);
+                eventController.replay();
+                if (eventController.getTotalSteps() > 0) {
+                    replayPlaybackPending = true;
+                    hud.setStatus("REPLAY: Replaying the undone action.");
+                } else {
+                    finishReplayPlayback();
+                    hud.setStatus("REPLAY: Reapplied the undone action.");
+                }
+            } else {
+                finishReplayPlayback();
+                hud.setStatus("REPLAY: Reapplied the undone action.");
+            }
+            return;
+        }
+
+        if (log.getCount() > 0) {
+            eventController.loadFromEventLog(log);
+            eventController.replay();
+            replayPlaybackPending = false;
+            hud.setStatus("REPLAY: Replaying recorded event sequence with scrubber.");
+        } else if (eventLog.getCount() > 0) {
+            undoManager.recordActionEvents(eventLog);
+            eventController.loadFromEventLog(eventLog);
+            eventController.replay();
+            replayPlaybackPending = false;
+            hud.setStatus("REPLAY: Replaying recorded event sequence with scrubber.");
+        } else {
+            hud.setStatus("REPLAY: No recorded event sequence in buffer.");
+        }
+    }
+
+    void finishReplayPlayback() {
+        TreeSnapshot afterAction;
+        TreeSnapshot beforeAction;
+        if (undoManager.getReplaySnapshot(afterAction) && undoManager.getUndoneSnapshot(beforeAction)) {
+            restoreSnapshot(afterAction);
+            undoManager.pushExistingSnapshot(beforeAction);
+            undoManager.clearUndoneSnapshot();
+            LevelDef* lvl = levelManager.getCurrentLevel();
+            if (isScreen("level_play") && isAct("act_3") && lvl != nullptr &&
+                !act3.lvl32.isLevelComplete && !act3.lvl33.isLevelComplete) {
+                if (lvl->levelNumber == 2 && act3.lvl32.stage == 1) {
+                    isAct3StageTransitionPending = true;
+                    pendingAct3StageLevel = 2;
+                    act3StageTransitionTimer = 0.0f;
+                } else if (lvl->levelNumber == 3 && act3.lvl33.stage == 1) {
+                    isAct3StageTransitionPending = true;
+                    pendingAct3StageLevel = 3;
+                    act3StageTransitionTimer = 0.0f;
+                }
+            }
+        }
+        eventController.clear();
+        replayPlaybackPending = false;
     }
 
     void handleHint() {
@@ -320,24 +567,50 @@ public:
         }
     }
 
+    void handleAct34Prediction(const char* prediction, const char* label) {
+        if (!isScreen("level_play") || !isAct("act_3") ||
+            strcmp(levelManager.playState, "in_progress") != 0) return;
+
+        takeSnapshot("Before Level 3.4 Prediction");
+        eventLog.clear();
+        avl.setEventLog(&eventLog);
+
+        char feedback[160] = {0};
+        act3.handleLevel34Prediction(prediction, levelManager.scoreSystem, feedback, sizeof(feedback));
+        syncAVLVisualsAnimated();
+        playEvents(eventLog);
+        hud.setStatus(feedback, label);
+
+        if (levelManager.scoreSystem.isAlarmBreached()) {
+            levelManager.notifyAction("fail", 0);
+            setupButtons();
+            return;
+        }
+        if (act3.lvl34.isLevelComplete) {
+            levelManager.notifyAction("insert", 0);
+            SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
+        }
+        setupButtons();
+    }
+
     void collectSnapshotKeys(TreeNode* node, int* arr, int& count) {
-        if (node == nullptr || count >= 32) return;
+        if (node == nullptr || count >= 64) return;
         arr[count++] = node->data;
         collectSnapshotKeys(node->left, arr, count);
         collectSnapshotKeys(node->right, arr, count);
     }
 
     void collectBSTKeys(BSTNode* node, int* arr, int& count) {
-        if (node == nullptr || count >= 32) return;
+        if (node == nullptr || count >= 64) return;
+        arr[count++] = node->key;
         collectBSTKeys(node->left, arr, count);
-        if (count < 32) arr[count++] = node->key;
         collectBSTKeys(node->right, arr, count);
     }
 
     void collectAVLKeys(AVLNode* node, int* arr, int& count) {
-        if (node == nullptr || count >= 32) return;
+        if (node == nullptr || count >= 64) return;
+        arr[count++] = node->key;
         collectAVLKeys(node->left, arr, count);
-        if (count < 32) arr[count++] = node->key;
         collectAVLKeys(node->right, arr, count);
     }
 
@@ -469,6 +742,7 @@ public:
 
         setScreenState("level_play");
         setupButtons();
+        takeSnapshot("Level Start");
 
         char buf[160];
         snprintf(buf, sizeof(buf), "[%s] OBJECTIVE: %s", lvl->title, lvl->objective);
@@ -482,12 +756,12 @@ public:
         if (isScreen("menu")) {
             // Main Menu Buttons
             float bx = 490.0f;
-            float by = 260.0f;
+            float by = 245.0f;
             float bw = 300.0f;
-            float bh = 42.0f;
-            float bgap = 18.0f;
+            float bh = 40.0f;
+            float bgap = 14.0f;
 
-            buttons[buttonCount++] = BioButton(bx, by, bw, bh, "1. CAMPAIGN MODE (20 Levels)", 210, true);
+            buttons[buttonCount++] = BioButton(bx, by, bw, bh, "1. CAMPAIGN MODE", 210, true);
             by += bh + bgap;
             buttons[buttonCount++] = BioButton(bx, by, bw, bh, "2. SANDBOX MODE (Free Lab)", 211);
             by += bh + bgap;
@@ -495,7 +769,29 @@ public:
             by += bh + bgap;
             buttons[buttonCount++] = BioButton(bx, by, bw, bh, "4. ENDLESS SCOREBOARD", 214);
             by += bh + bgap;
-            buttons[buttonCount++] = BioButton(bx, by, bw, bh, "5. QUIT GAME", 213);
+            buttons[buttonCount++] = BioButton(bx, by, bw, bh, "5. SETTINGS (Audio)", 218);
+            by += bh + bgap;
+            buttons[buttonCount++] = BioButton(bx, by, bw, bh, "6. QUIT GAME", 213);
+            return;
+        }
+
+        if (isScreen("settings")) {
+            float bx = 490.0f;
+            float by = 340.0f;
+            float bw = 300.0f;
+            float bh = 42.0f;
+
+            if (bgMusicMuted) {
+                buttons[buttonCount++] = BioButton(bx, by, bw, bh, "UNMUTE AUDIO (M)", 220, true);
+            } else {
+                buttons[buttonCount++] = BioButton(bx, by, bw, bh, "MUTE AUDIO (M)", 220, false);
+            }
+            by += bh + 16.0f;
+
+            buttons[buttonCount++] = BioButton(bx, by, 140.0f, bh, "VOLUME -", 221);
+            buttons[buttonCount++] = BioButton(bx + 160.0f, by, 140.0f, bh, "VOLUME +", 222);
+
+            buttons[buttonCount++] = BioButton(540.0f, 620.0f, 200.0f, 38.0f, "< Back to Main Menu", 200);
             return;
         }
 
@@ -601,9 +897,15 @@ public:
 
         if (isScreen("level_play")) {
             buttons[buttonCount++] = BioButton(x1, row1Y, 82.0f, btnH, "< Map", 205);
-            x1 += 82.0f + gap * 2.0f;
+            x1 += 82.0f + gap;
+            buttons[buttonCount++] = BioButton(x1, row1Y, 78.0f, btnH, "Undo (Z)", 202);
+            x1 += 78.0f + gap;
+            buttons[buttonCount++] = BioButton(x1, row1Y, 84.0f, btnH, "Replay (R)", 206);
+            x1 += 84.0f + gap;
+            buttons[buttonCount++] = BioButton(x1, row1Y, 68.0f, btnH, "Log (L)", 207, eventLogPanel.isVisible);
+            x1 += 68.0f + gap * 2.0f;
         } else {
-            // Sandbox / Endless Mode: Full Act Switchers and Undo
+            // Sandbox / Endless Mode: Full Act Switchers, Undo, and Replay
             buttons[buttonCount++] = BioButton(x1, row1Y, 82.0f, btnH, "Act 1: Tree", 101, inAct1);
             x1 += 82.0f + gap;
             buttons[buttonCount++] = BioButton(x1, row1Y, 82.0f, btnH, "Act 2: BST", 102, inAct2);
@@ -613,7 +915,11 @@ public:
             buttons[buttonCount++] = BioButton(x1, row1Y, 82.0f, btnH, "Act 4: Heap", 104, inAct4);
             x1 += 82.0f + gap;
             buttons[buttonCount++] = BioButton(x1, row1Y, 78.0f, btnH, "Undo (Z)", 202);
-            x1 += 78.0f + gap * 2.0f;
+            x1 += 78.0f + gap;
+            buttons[buttonCount++] = BioButton(x1, row1Y, 84.0f, btnH, "Replay (R)", 206);
+            x1 += 84.0f + gap;
+            buttons[buttonCount++] = BioButton(x1, row1Y, 68.0f, btnH, "Log (L)", 207, eventLogPanel.isVisible);
+            x1 += 68.0f + gap * 2.0f;
         }
 
         // Input Box and +/- adjustments
@@ -762,7 +1068,8 @@ public:
                     // Level 3.3 double rotations are performed by dragging the unbalanced pivot.
                 } else if (lvlNum == 4) {
                     // Level 3.4: Prediction buttons (show for each insertion)
-                    if (!act3.lvl34.isLevelComplete && act3.lvl34.currentIdx < act3.lvl34.totalCount) {
+                    if (strcmp(levelManager.playState, "in_progress") == 0 &&
+                        !act3.lvl34.isLevelComplete && act3.lvl34.currentIdx < act3.lvl34.totalCount) {
                         buttons[buttonCount++] = BioButton(x1, row1Y, 100.0f, btnH, "No Rotation", 84);
                         x1 += 100.0f + gap;
                         buttons[buttonCount++] = BioButton(x1, row1Y, 60.0f, btnH, "LL", 85);
@@ -1010,6 +1317,7 @@ public:
 
         syncBinaryTreeVisuals();
         inputBox.setValue(50);
+        takeSnapshot("Act 1 Default");
     }
 
     // Act 2: BST Setup
@@ -1029,6 +1337,7 @@ public:
 
         syncBSTVisuals();
         inputBox.setValue(60);
+        takeSnapshot("Act 2 Default");
     }
 
     // Act 3: AVL Tree Setup
@@ -1051,6 +1360,7 @@ public:
 
         syncAVLVisuals();
         inputBox.setValue(25);
+        takeSnapshot("Act 3 Default");
     }
 
     // Act 4: Max Heap Setup
@@ -1066,10 +1376,12 @@ public:
 
         syncHeapVisuals();
         inputBox.setValue(85);
+        takeSnapshot("Act 4 Default");
     }
 
     void handleSandboxRandomAction() {
         if (!isScreen("sandbox")) return;
+        takeSnapshot("Before Random");
         
         // Simple LCG random using existing endlessRng pattern
         unsigned int rng = static_cast<unsigned int>(time(nullptr));
@@ -1167,6 +1479,7 @@ public:
 
     void handleSandboxResetAction() {
         if (!isScreen("sandbox")) return;
+        takeSnapshot("Before Reset");
         
         eventController.clear();
         selectedNodeIndex = -1;
@@ -1267,6 +1580,7 @@ public:
         if (node == nullptr) return -1;
         int idx = layout.allocateNode(node->key);
         if (idx == -1) return -1;
+        layout.nodes[idx].nodeId = node->id;
 
         if (node->left != nullptr) {
             int leftIdx = mapBSTNodeToVisual(node->left);
@@ -1297,6 +1611,7 @@ public:
         int idx = layout.allocateNode(node->key);
         if (idx == -1) return -1;
 
+        layout.nodes[idx].nodeId = node->id;
         layout.nodes[idx].balanceFactor = avl.balanceFactor(node);
         layout.nodes[idx].subtreeSize = avl.subtreeSize(node);
 
@@ -1749,19 +2064,24 @@ public:
 
             eventLog.clear();
             BSTNode* cur = bst.getRoot();
+            BSTNode* insertParent = nullptr;
+            int insertSide = 0;
             while (cur != nullptr) {
+                insertParent = cur;
+                insertSide = val < cur->key ? 1 : 0;
                 eventLog.logCompare(cur->id, -1, cur->key, val);
                 if (val < cur->key) cur = cur->left;
                 else cur = cur->right;
             }
 
+            const int insertIndex = layout.nodeCount;
+            const int parentId = insertParent != nullptr ? insertParent->id : -1;
             bst.insert(val);
-            eventLog.logInsert(-1, -1, 0, val);
+            eventLog.logInsert(insertIndex, parentId, insertSide, val);
             eventLog.logDone("BST insertion complete");
 
             syncBSTVisuals();
-            eventController.loadFromEventLog(eventLog);
-            eventController.start();
+            playEvents(eventLog);
 
             if (!isScreen("sandbox")) {
                 levelManager.scoreSystem.addAlarmStep(2);
@@ -1785,8 +2105,7 @@ public:
             avl.insert(val);
 
             syncAVLVisuals();
-            eventController.loadFromEventLog(eventLog);
-            eventController.start();
+            playEvents(eventLog);
 
             if (!isScreen("sandbox")) {
                 levelManager.scoreSystem.addAlarmStep(2);
@@ -1802,8 +2121,7 @@ public:
             heap.insert(val);
 
             syncHeapVisuals();
-            eventController.loadFromEventLog(eventLog);
-            eventController.start();
+            playEvents(eventLog);
 
             if (!isScreen("sandbox")) {
                 levelManager.scoreSystem.addAlarmStep(2);
@@ -1860,8 +2178,7 @@ public:
                 syncBSTVisuals();
                 selectedNodeIndex = -1;
 
-                eventController.loadFromEventLog(eventLog);
-                eventController.start();
+                playEvents(eventLog);
 
                 if (!isScreen("sandbox")) {
                     levelManager.scoreSystem.addAlarmStep(3);
@@ -1897,8 +2214,7 @@ public:
                 syncAVLVisuals();
                 selectedNodeIndex = -1;
 
-                eventController.loadFromEventLog(eventLog);
-                eventController.start();
+                playEvents(eventLog);
 
                 if (!isScreen("sandbox")) {
                     levelManager.scoreSystem.addAlarmStep(3);
@@ -1961,8 +2277,7 @@ public:
                 snprintf(buf, sizeof(buf), "SEARCH MISS: Key %d does not exist in BST.", targetKey);
                 hud.setStatus(buf, "Search reached dead-end leaf branch.");
             }
-            eventController.loadFromEventLog(eventLog);
-            eventController.start();
+            playEvents(eventLog);
         } else if (isAct("act_3")) {
             bool found = avl.search(targetKey);
             for (int i = 0; i < layout.nodeCount; i++) {
@@ -2090,6 +2405,7 @@ public:
 
     void runRotationDemo(const char* rotType) {
         if (!isAct("act_3")) return;
+        takeSnapshot("Before Rotation Demo");
         eventController.clear();
         selectedNodeIndex = -1;
 
@@ -2138,8 +2454,7 @@ public:
         }
 
         syncAVLVisuals();
-        eventController.loadFromEventLog(eventLog);
-        eventController.start();
+        playEvents(eventLog);
 
         if (isScreen("level_play") && strcmp(levelManager.playState, "victory") == 0) {
             SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
@@ -2274,8 +2589,7 @@ public:
         int maxVal = heap.extractMax();
 
         syncHeapVisuals();
-        eventController.loadFromEventLog(eventLog);
-        eventController.start();
+        playEvents(eventLog);
 
         if (!isScreen("sandbox")) {
             levelManager.scoreSystem.addAlarmStep(3);
@@ -2301,8 +2615,7 @@ public:
         heap.buildMaxHeap(rawArr, 8);
 
         syncHeapVisuals();
-        eventController.loadFromEventLog(eventLog);
-        eventController.start();
+        playEvents(eventLog);
 
         if (!isScreen("sandbox")) {
             levelManager.scoreSystem.addAlarmStep(4);
@@ -2329,8 +2642,7 @@ public:
         heap.heapSort();
 
         syncHeapVisuals();
-        eventController.loadFromEventLog(eventLog);
-        eventController.start();
+        playEvents(eventLog);
 
         if (!isScreen("sandbox")) {
             levelManager.scoreSystem.addAlarmStep(5);
@@ -2377,8 +2689,7 @@ public:
         heap.siftDown(0);
 
         syncHeapVisuals();
-        eventController.loadFromEventLog(eventLog);
-        eventController.start();
+        playEvents(eventLog);
 
         if (!isScreen("sandbox")) {
             levelManager.scoreSystem.addAlarmStep(2);
@@ -2403,8 +2714,7 @@ public:
         heap.siftUp(lastIdx);
 
         syncHeapVisuals();
-        eventController.loadFromEventLog(eventLog);
-        eventController.start();
+        playEvents(eventLog);
 
         if (!isScreen("sandbox")) {
             levelManager.scoreSystem.addAlarmStep(2);
@@ -2439,6 +2749,7 @@ public:
 
     void completeAct25AndAdvance() {
         // Stage B presents the lesson; progression happens only after the player's choice.
+        takeSnapshot("Before Campaign Step");
         act2.completeLevel25(levelManager.scoreSystem);
         levelManager.notifyAction("boss", 0);
 
@@ -2533,13 +2844,49 @@ public:
                 return;
             }
             finishEndlessOperation();
-            eventController.loadFromEventLog(eventLog); eventController.start();
+            playEvents(eventLog);
             hud.setStatus(endlessInsert ? "INSERT completed and AVL validated." : "DELETE completed and AVL validated.");
             return;
         } else if (actionId == 217) { // Quit endless run to menu
             recordEndlessScore();
             endlessOperationActive = false; endlessRepairing = false; endlessTimer = 0.0f;
             setScreenState("menu"); setupButtons();
+            return;
+        } else if (actionId == 218) { // Settings (Audio)
+            setScreenState("settings");
+            setupButtons();
+            hud.setStatus("SETTINGS: Configure background ambient audio.");
+            return;
+        } else if (actionId == 220) { // Toggle Audio Mute
+            toggleAudioMute();
+            setupButtons();
+            hud.setStatus(bgMusicMuted ? "AUDIO: Background music muted." : "AUDIO: Background music unmuted (playing).");
+            return;
+        } else if (actionId == 221) { // Volume Down
+            if (bgMusicVolume > 0) {
+                bgMusicVolume -= 10;
+                if (bgMusicVolume < 0) bgMusicVolume = 0;
+                bgMusic.setVolume(static_cast<float>(bgMusicVolume));
+                setupButtons();
+                char vMsg[64];
+                snprintf(vMsg, sizeof(vMsg), "AUDIO VOLUME: %d%%", bgMusicVolume);
+                hud.setStatus(vMsg);
+            }
+            return;
+        } else if (actionId == 222) { // Volume Up
+            if (bgMusicVolume < 100) {
+                bgMusicVolume += 10;
+                if (bgMusicVolume > 100) bgMusicVolume = 100;
+                bgMusic.setVolume(static_cast<float>(bgMusicVolume));
+                if (bgMusicMuted) {
+                    bgMusicMuted = false;
+                    bgMusic.play();
+                }
+                setupButtons();
+                char vMsg[64];
+                snprintf(vMsg, sizeof(vMsg), "AUDIO VOLUME: %d%%", bgMusicVolume);
+                hud.setStatus(vMsg);
+            }
             return;
         } else if (actionId == 213) { // Quit
             exit(0);
@@ -2552,6 +2899,13 @@ public:
             return;
         } else if (actionId == 202) { // Undo
             handleUndo();
+            return;
+        } else if (actionId == 206) { // Replay
+            handleReplay();
+            return;
+        } else if (actionId == 207) { // Toggle Event Log Panel
+            eventLogPanel.toggle();
+            setupButtons(); // refresh button active state
             return;
         } else if (actionId == 203) { // Next Level
             if (isScreen("level_play") && isAct("act_2") && act2.lvl25.stage == 2) {
@@ -2621,8 +2975,7 @@ public:
                 eventLog.clear();
                 buildPreorderEvents(layout.findRootIndex());
                 eventLog.logDone("Preorder traversal complete");
-                eventController.loadFromEventLog(eventLog);
-                eventController.start();
+                playEvents(eventLog);
                 if (!isScreen("sandbox")) {
                     levelManager.scoreSystem.addAlarmStep(layout.nodeCount);
                     levelManager.notifyAction("preorder", 0);
@@ -2641,8 +2994,7 @@ public:
                 eventLog.clear();
                 buildInorderEvents(layout.findRootIndex());
                 eventLog.logDone("Inorder traversal complete");
-                eventController.loadFromEventLog(eventLog);
-                eventController.start();
+                playEvents(eventLog);
                 if (!isScreen("sandbox")) {
                     levelManager.scoreSystem.addAlarmStep(layout.nodeCount);
                     levelManager.notifyAction("inorder", 0);
@@ -2661,8 +3013,7 @@ public:
                 eventLog.clear();
                 buildPostorderEvents(layout.findRootIndex());
                 eventLog.logDone("Postorder traversal complete");
-                eventController.loadFromEventLog(eventLog);
-                eventController.start();
+                playEvents(eventLog);
                 if (!isScreen("sandbox")) {
                     levelManager.scoreSystem.addAlarmStep(layout.nodeCount);
                     levelManager.notifyAction("postorder", 0);
@@ -2681,8 +3032,7 @@ public:
                 eventLog.clear();
                 buildLevelOrderEvents();
                 eventLog.logDone("Level-order traversal complete");
-                eventController.loadFromEventLog(eventLog);
-                eventController.start();
+                playEvents(eventLog);
                 if (!isScreen("sandbox")) {
                     levelManager.scoreSystem.addAlarmStep(layout.nodeCount);
                     levelManager.notifyAction("level_order", 0);
@@ -2705,6 +3055,7 @@ public:
             {
                 if (isScreen("level_play") && isAct("act_1") && levelManager.getCurrentLevel() && levelManager.getCurrentLevel()->levelNumber == 5) {
                     char fb[160] = {0};
+                    takeSnapshot("Before Campaign Step");
                     bool ok = act1.handleAutoMirror(levelManager.scoreSystem, fb, sizeof(fb));
                     syncBinaryTreeVisuals();
                     hud.setStatus(fb, "Bilateral Reflection (Auto)");
@@ -2744,6 +3095,7 @@ public:
             {
                 if (isScreen("level_play") && isAct("act_2")) {
                     char fb[160] = {0};
+                    takeSnapshot("Before Campaign Step");
                     bool ok = act2.handleLevel21TargetNotFound(levelManager.scoreSystem, fb, sizeof(fb));
                     hud.setStatus(fb, "Target Not Found Verification");
                     if (ok) {
@@ -2778,8 +3130,7 @@ public:
                             int vIdx = findVisualNodeByKey(delKey);
                             if (vIdx != -1) eventLog.logUnlink(vIdx, -1, 0, delKey);
                             eventLog.logDone("Stage 1 (Leaf): Node 20 unlinked and removed");
-                            eventController.loadFromEventLog(eventLog);
-                            eventController.start();
+                            playEvents(eventLog);
 
                             if (bst.search(delKey)) bst.deleteNode(delKey);
                             syncBSTVisuals();
@@ -2792,8 +3143,7 @@ public:
                             if (vIdx != -1) eventLog.logUnlink(vIdx, -1, 0, delKey);
                             if (cIdx != -1) eventLog.logVisit(cIdx, 65);
                             eventLog.logDone("Stage 2 (One Child): Node 60 deleted, child 65 promoted to 70");
-                            eventController.loadFromEventLog(eventLog);
-                            eventController.start();
+                            playEvents(eventLog);
 
                             if (bst.search(delKey)) bst.deleteNode(delKey);
                             syncBSTVisuals();
@@ -2818,6 +3168,7 @@ public:
             case 77: // Level 2.3: Continue to next stage
             {
                 if (isScreen("level_play") && isAct("act_2") && strcmp(act2.lvl23.phase, "stage_cleared") == 0) {
+                    takeSnapshot("Before Campaign Step");
                     act2.advanceLevel23Stage();
                     syncBSTVisuals();
                     applyAct2InitialVisuals(3);
@@ -2831,6 +3182,7 @@ public:
             {
                 if (isScreen("level_play") && isAct("act_2") && strcmp(act2.lvl23.phase, "successor_select") == 0) {
                     char fb[160] = {0};
+                    takeSnapshot("Before Campaign Step");
                     bool ok = act2.handleLevel23SuccessorClick(60, levelManager.scoreSystem, fb, sizeof(fb));
                     hud.setStatus(fb, "Inorder Successor Swap");
                     if (ok) {
@@ -2842,8 +3194,7 @@ public:
                             eventLog.logUnlink(n60, -1, 0, 50);
                         }
                         eventLog.logDone("Stage 3: Successor 60 swapped with root 50, original successor deleted");
-                        eventController.loadFromEventLog(eventLog);
-                        eventController.start();
+                        playEvents(eventLog);
 
                         if (bst.search(50)) bst.deleteNode(50);
                         syncBSTVisuals();
@@ -2859,6 +3210,7 @@ public:
             {
                 if (isScreen("level_play") && isAct("act_2") && !act2.lvl24.isExecuted) {
                     char fb[160] = {0};
+                    takeSnapshot("Before Campaign Step");
                     bool ok = act2.executeRangeQuery(levelManager.scoreSystem, fb, sizeof(fb));
                     hud.setStatus(fb, "BST Range Raid [30, 65]");
                     if (ok) {
@@ -2884,8 +3236,7 @@ public:
                         eventLog.logHighlightSubtree(n80, "pruned_right");
                         eventLog.logDone("Range Raid [30, 65] with subtree pruning complete");
 
-                        eventController.loadFromEventLog(eventLog);
-                        eventController.start();
+                        playEvents(eventLog);
 
                         applyAct2RangeVisuals();
                         levelManager.notifyAction("range", 0);
@@ -2901,7 +3252,9 @@ public:
                 if (isScreen("level_play") && isAct("act_2") && act2.lvl25.stage == 0) {
                     char fb[160] = {0};
                     int idx = act2.lvl25.insertedCount;
+                    takeSnapshot("Before Campaign Step");
                     act2.handleLevel25SelectArrayValue(idx, fb, sizeof(fb));
+                    takeSnapshot("Before Campaign Step");
                     bool ok = act2.handleLevel25SlotClick(0, levelManager.scoreSystem, fb, sizeof(fb));
                     syncBSTVisuals();
                     hud.setStatus(fb, "Boss Stage A: Sorted Insertion");
@@ -2928,6 +3281,7 @@ public:
                 if (isScreen("level_play") && isAct("act_2") && act2.lvl25.stage == 1) {
                     char fb[160] = {0};
                     int val = act2.lvl25.currentSearchNodeKey;
+                    takeSnapshot("Before Campaign Step");
                     bool ok = act2.handleLevel25SearchClick(val, levelManager.scoreSystem, fb, sizeof(fb));
                     int vIdx = findVisualNodeByKey(val);
                     if (vIdx != -1) layout.nodes[vIdx].setState("highlighted");
@@ -2955,84 +3309,25 @@ public:
 
             // ===================== ACT 3 CAMPAIGN BUTTON HANDLERS =====================
             case 84: // Level 3.4: Predict no_rotation
-            {
-                if (isScreen("level_play") && isAct("act_3")) {
-                    char fb[160] = {0};
-                    act3.handleLevel34Prediction("no_rotation", levelManager.scoreSystem, fb, sizeof(fb));
-                    syncAVLVisuals();
-                    hud.setStatus(fb, "Prediction: no_rotation");
-                    if (act3.lvl34.isLevelComplete) {
-                        levelManager.notifyAction("insert", 0);
-                        SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
-                    }
-                    setupButtons();
-                }
+                handleAct34Prediction("no_rotation", "Prediction: no_rotation");
                 break;
-            }
             case 85: // Level 3.4: Predict LL
-            {
-                if (isScreen("level_play") && isAct("act_3")) {
-                    char fb[160] = {0};
-                    act3.handleLevel34Prediction("ll", levelManager.scoreSystem, fb, sizeof(fb));
-                    syncAVLVisuals();
-                    hud.setStatus(fb, "Prediction: LL");
-                    if (act3.lvl34.isLevelComplete) {
-                        levelManager.notifyAction("insert", 0);
-                        SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
-                    }
-                    setupButtons();
-                }
+                handleAct34Prediction("ll", "Prediction: LL");
                 break;
-            }
             case 86: // Level 3.4: Predict RR
-            {
-                if (isScreen("level_play") && isAct("act_3")) {
-                    char fb[160] = {0};
-                    act3.handleLevel34Prediction("rr", levelManager.scoreSystem, fb, sizeof(fb));
-                    syncAVLVisuals();
-                    hud.setStatus(fb, "Prediction: RR");
-                    if (act3.lvl34.isLevelComplete) {
-                        levelManager.notifyAction("insert", 0);
-                        SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
-                    }
-                    setupButtons();
-                }
+                handleAct34Prediction("rr", "Prediction: RR");
                 break;
-            }
             case 87: // Level 3.4: Predict LR
-            {
-                if (isScreen("level_play") && isAct("act_3")) {
-                    char fb[160] = {0};
-                    act3.handleLevel34Prediction("lr", levelManager.scoreSystem, fb, sizeof(fb));
-                    syncAVLVisuals();
-                    hud.setStatus(fb, "Prediction: LR");
-                    if (act3.lvl34.isLevelComplete) {
-                        levelManager.notifyAction("insert", 0);
-                        SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
-                    }
-                    setupButtons();
-                }
+                handleAct34Prediction("lr", "Prediction: LR");
                 break;
-            }
             case 88: // Level 3.4: Predict RL
-            {
-                if (isScreen("level_play") && isAct("act_3")) {
-                    char fb[160] = {0};
-                    act3.handleLevel34Prediction("rl", levelManager.scoreSystem, fb, sizeof(fb));
-                    syncAVLVisuals();
-                    hud.setStatus(fb, "Prediction: RL");
-                    if (act3.lvl34.isLevelComplete) {
-                        levelManager.notifyAction("insert", 0);
-                        SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
-                    }
-                    setupButtons();
-                }
+                handleAct34Prediction("rl", "Prediction: RL");
                 break;
-            }
             case 89: // Level 3.5: Claim Treasure
             {
                 if (isScreen("level_play") && isAct("act_3")) {
                     char fb[160] = {0};
+                    takeSnapshot("Before Campaign Step");
                     bool ok = act3.handleLevel35Claim(levelManager.scoreSystem, fb, sizeof(fb));
                     hud.setStatus(fb, "Order-Statistic Claim");
                     if (ok && act3.lvl35.isLevelComplete) {
@@ -3048,6 +3343,7 @@ public:
             {
                 if (isScreen("level_play") && isAct("act_4")) {
                     char fb[160] = {0};
+                    takeSnapshot("Before Campaign Step");
                     bool ok = act4.handleLevel41ConfirmSwap(levelManager.scoreSystem, fb, sizeof(fb));
                     syncHeapVisuals();
                     applyAct4InitialVisuals(1);
@@ -3064,6 +3360,7 @@ public:
             {
                 if (isScreen("level_play") && isAct("act_4")) {
                     char fb[160] = {0};
+                    takeSnapshot("Before Campaign Step");
                     bool ok = act4.handleLevel41NoSwapNeeded(levelManager.scoreSystem, fb, sizeof(fb));
                     applyAct4InitialVisuals(1);
                     hud.setStatus(fb, "Inspect Parent & Children");
@@ -3090,6 +3387,7 @@ public:
             {
                 if (isScreen("level_play") && isAct("act_4")) {
                     char fb[160] = {0};
+                    takeSnapshot("Before Campaign Step");
                     bool ok = act4.handleLevel42ConfirmSwap(levelManager.scoreSystem, fb, sizeof(fb));
                     syncHeapVisuals();
                     applyAct4InitialVisuals(2);
@@ -3106,6 +3404,7 @@ public:
             {
                 if (isScreen("level_play") && isAct("act_4")) {
                     char fb[160] = {0};
+                    takeSnapshot("Before Campaign Step");
                     bool ok = act4.handleLevel42MoveUp(levelManager.scoreSystem, fb, sizeof(fb));
                     syncHeapVisuals();
                     applyAct4InitialVisuals(2);
@@ -3122,6 +3421,7 @@ public:
             {
                 if (isScreen("level_play") && isAct("act_4")) {
                     char fb[160] = {0};
+                    takeSnapshot("Before Campaign Step");
                     bool ok = act4.handleLevel43ExtractMax(levelManager.scoreSystem, fb, sizeof(fb));
                     syncHeapVisuals();
                     applyAct4InitialVisuals(3);
@@ -3138,6 +3438,7 @@ public:
             {
                 if (isScreen("level_play") && isAct("act_4")) {
                     char fb[160] = {0};
+                    takeSnapshot("Before Campaign Step");
                     bool ok = act4.handleLevel43ConfirmSwap(levelManager.scoreSystem, fb, sizeof(fb));
                     syncHeapVisuals();
                     applyAct4InitialVisuals(3);
@@ -3154,6 +3455,7 @@ public:
             {
                 if (isScreen("level_play") && isAct("act_4")) {
                     char fb[160] = {0};
+                    takeSnapshot("Before Campaign Step");
                     bool ok = act4.handleLevel44ExtractMax(levelManager.scoreSystem, fb, sizeof(fb));
                     syncHeapVisuals();
                     applyAct4InitialVisuals(4);
@@ -3170,6 +3472,7 @@ public:
             {
                 if (isScreen("level_play") && isAct("act_4")) {
                     char fb[160] = {0};
+                    takeSnapshot("Before Campaign Step");
                     bool ok = act4.handleLevel44ConfirmSwap(levelManager.scoreSystem, fb, sizeof(fb));
                     syncHeapVisuals();
                     applyAct4InitialVisuals(4);
@@ -3186,6 +3489,7 @@ public:
             {
                 if (isScreen("level_play") && isAct("act_4")) {
                     char fb[160] = {0};
+                    takeSnapshot("Before Campaign Step");
                     bool ok = act4.handleLevel45ConfirmSwap(levelManager.scoreSystem, fb, sizeof(fb));
                     syncHeapVisuals();
                     applyAct4InitialVisuals(5);
@@ -3199,6 +3503,7 @@ public:
             {
                 if (isScreen("level_play") && isAct("act_4")) {
                     char fb[160] = {0};
+                    takeSnapshot("Before Campaign Step");
                     bool ok = act4.handleLevel45NoSwapNeeded(levelManager.scoreSystem, fb, sizeof(fb));
                     applyAct4InitialVisuals(5);
                     hud.setStatus(fb, "Phase A: Verify Parent");
@@ -3211,6 +3516,7 @@ public:
             {
                 if (isScreen("level_play") && isAct("act_4")) {
                     char fb[160] = {0};
+                    takeSnapshot("Before Campaign Step");
                     bool ok = act4.handleLevel45ExtractMax(levelManager.scoreSystem, fb, sizeof(fb));
                     syncHeapVisuals();
                     applyAct4InitialVisuals(5);
@@ -3227,6 +3533,7 @@ public:
             {
                 if (isScreen("level_play") && isAct("act_4")) {
                     char fb[160] = {0};
+                    takeSnapshot("Before Campaign Step");
                     bool ok = act4.handleLevel45ConfirmSwap(levelManager.scoreSystem, fb, sizeof(fb));
                     syncHeapVisuals();
                     applyAct4InitialVisuals(5);
@@ -3410,9 +3717,25 @@ public:
                         float distSq = (worldPos.x - sx) * (worldPos.x - sx) + (worldPos.y - sy) * (worldPos.y - sy);
                         if (distSq <= 30.0f * 30.0f) {
                             char fb[160] = {0};
+                            const int selectedToken = act1.lvl12.selectedTokenIndex;
+                            const int placedValue = selectedToken >= 0 && selectedToken < act1.lvl12.tokenCount
+                                                        ? act1.lvl12.tokens[selectedToken].value : 0;
+                            const int insertedSide = act1.lvl12.slots[s].isLeft ? 1 : 0;
+                            const int insertedVisualIndex = layout.nodeCount;
+                            int parentVisualIndex = -1;
+                            const int parentSlot = act1.lvl12.slots[s].parentSlot;
+                            if (parentSlot >= 0 && act1.lvl12.slots[parentSlot].isOccupied) {
+                                parentVisualIndex = findVisualNodeByKey(act1.lvl12.slots[parentSlot].placedValue);
+                            }
+                            takeSnapshot("Before Reconstruction Placement");
+                            eventLog.clear();
                             bool ok = act1.placeTokenInSlot(s, levelManager.scoreSystem, fb, sizeof(fb));
                             if (ok) {
                                 syncReconVisuals();
+                                eventLog.logInsert(insertedVisualIndex, parentVisualIndex,
+                                                   insertedSide, placedValue);
+                                eventLog.logDone("Reconstruction token placed");
+                                playEvents(eventLog);
                                 if (act1.lvl12.isLevelComplete) {
                                     levelManager.notifyAction("reconstruct", 0);
                                     SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
@@ -3441,6 +3764,7 @@ public:
                         float distSq = (worldPos.x - sx) * (worldPos.x - sx) + (worldPos.y - sy) * (worldPos.y - sy);
                         if (distSq <= 28.0f * 28.0f) {
                             char fb[160] = {0};
+                            takeSnapshot("Before Campaign Step");
                             bool ok = act2.handleLevel22SlotClick(s, levelManager.scoreSystem, fb, sizeof(fb));
                             if (ok) {
                                 syncBSTVisuals();
@@ -3483,14 +3807,19 @@ public:
                                     char fb[160] = {0};
                                     bool ok = false;
                                     if (mech == 1) {
+                                        takeSnapshot("Before Campaign Step");
                                         ok = act4.handleLevel41NodeClick(cellIdx, levelManager.scoreSystem, fb, sizeof(fb));
                                     } else if (mech == 2) {
+                                        takeSnapshot("Before Campaign Step");
                                         ok = act4.handleLevel42NodeClick(cellIdx, levelManager.scoreSystem, fb, sizeof(fb));
                                     } else if (mech == 3) {
+                                        takeSnapshot("Before Campaign Step");
                                         ok = act4.handleLevel43NodeClick(cellIdx, levelManager.scoreSystem, fb, sizeof(fb));
                                     } else if (mech == 4) {
+                                        takeSnapshot("Before Campaign Step");
                                         ok = act4.handleLevel44NodeClick(cellIdx, levelManager.scoreSystem, fb, sizeof(fb));
                                     } else if (mech == 5) {
+                                        takeSnapshot("Before Campaign Step");
                                         ok = act4.handleLevel45NodeClick(cellIdx, levelManager.scoreSystem, fb, sizeof(fb));
                                     }
                                     applyAct4InitialVisuals(mech);
@@ -3521,6 +3850,7 @@ public:
                             char fb[160] = {0};
 
                             if (lvlNum == 1) {
+                                takeSnapshot("Before Campaign Step");
                                 bool ok = act1.handleLevel11Click(val, levelManager.scoreSystem, fb, sizeof(fb));
                                 if (ok) {
                                     layout.nodes[clickedNode].setState("highlighted");
@@ -3540,6 +3870,7 @@ public:
                                 }
                                 hud.setStatus(fb, act1.lvl11.stages[act1.lvl11.currentStage].displayName);
                             } else if (lvlNum == 3) {
+                                takeSnapshot("Before Campaign Step");
                                 bool ok = act1.handleLevel13NodeClick(val, levelManager.scoreSystem, fb, sizeof(fb));
                                 if (ok) {
                                     resetAllVisualStates();
@@ -3553,6 +3884,7 @@ public:
                                 }
                                 hud.setStatus(fb, "Bottom-Up Height Analysis");
                             } else if (lvlNum == 4) {
+                                takeSnapshot("Before Campaign Step");
                                 bool ok = act1.handleLevel14Click(val, levelManager.scoreSystem, fb, sizeof(fb));
                                 if (ok) {
                                     if (strcmp(act1.lvl14.phase, "trace_path") == 0) {
@@ -3573,6 +3905,7 @@ public:
                                 }
                                 hud.setStatus(fb, "Escape Route Meeting Point");
                             } else if (lvlNum == 5) {
+                                takeSnapshot("Before Campaign Step");
                                 bool ok = act1.handleLevel15Swap(val, levelManager.scoreSystem, fb, sizeof(fb));
                                 if (ok) {
                                     syncBinaryTreeVisuals();
@@ -3596,6 +3929,7 @@ public:
 
                             if (lvlNum == 1) {
                                 // Level 2.1: Search Heist — only the current node is clickable
+                                takeSnapshot("Before Campaign Step");
                                 bool ok = act2.handleLevel21Click(val, levelManager.scoreSystem, fb, sizeof(fb));
                                 if (ok) {
                                     // Reveal the clicked node
@@ -3630,6 +3964,7 @@ public:
 
                             } else if (lvlNum == 2) {
                                 // Level 2.2: Stash Loot — node clicks advance traversal path
+                                takeSnapshot("Before Campaign Step");
                                 bool ok = act2.handleLevel22NodeClick(val, levelManager.scoreSystem, fb, sizeof(fb));
                                 if (ok) {
                                     layout.nodes[clickedNode].setState("highlighted");
@@ -3673,6 +4008,7 @@ public:
                             } else if (lvlNum == 5) {
                                 // Level 2.5 Stage B: search clicks
                                 if (act2.lvl25.stage == 1) {
+                                    takeSnapshot("Before Campaign Step");
                                     bool ok = act2.handleLevel25SearchClick(val, levelManager.scoreSystem, fb, sizeof(fb));
                                     if (ok) {
                                         layout.nodes[clickedNode].setState("highlighted");
@@ -3699,6 +4035,7 @@ public:
                                 int lvlNum = levelManager.getCurrentLevel() ? levelManager.getCurrentLevel()->levelNumber : 0;
                                 if (lvlNum == 1) {
                                     // Level 3.1: click unbalanced nodes
+                                    takeSnapshot("Before Campaign Step");
                                     bool ok = act3.handleLevel31NodeClick(val, levelManager.scoreSystem, fb, sizeof(fb));
                                     if (ok) {
                                         layout.nodes[clickedNode].setState("highlighted");
@@ -3717,6 +4054,7 @@ public:
                                     hud.setStatus(fb, "Find all unbalanced nodes (|BF| > 1)");
                                 } else if (lvlNum == 5 && act3.lvl35.phase == 1) {
                                     // Level 3.5 Phase B: follow order-statistic search path
+                                    takeSnapshot("Before Campaign Step");
                                     bool ok = act3.handleLevel35SearchClick(val, levelManager.scoreSystem, fb, sizeof(fb));
                                     if (ok) {
                                         layout.nodes[clickedNode].setState("highlighted");
@@ -3751,14 +4089,19 @@ public:
                                     char fb[160] = {0};
                                     bool ok = false;
                                     if (mech == 1) {
+                                        takeSnapshot("Before Campaign Step");
                                         ok = act4.handleLevel41NodeClick(clickedNode, levelManager.scoreSystem, fb, sizeof(fb));
                                     } else if (mech == 2) {
+                                        takeSnapshot("Before Campaign Step");
                                         ok = act4.handleLevel42NodeClick(clickedNode, levelManager.scoreSystem, fb, sizeof(fb));
                                     } else if (mech == 3) {
+                                        takeSnapshot("Before Campaign Step");
                                         ok = act4.handleLevel43NodeClick(clickedNode, levelManager.scoreSystem, fb, sizeof(fb));
                                     } else if (mech == 4) {
+                                        takeSnapshot("Before Campaign Step");
                                         ok = act4.handleLevel44NodeClick(clickedNode, levelManager.scoreSystem, fb, sizeof(fb));
                                     } else if (mech == 5) {
+                                        takeSnapshot("Before Campaign Step");
                                         ok = act4.handleLevel45NodeClick(clickedNode, levelManager.scoreSystem, fb, sizeof(fb));
                                     }
                                     applyAct4InitialVisuals(mech);
@@ -3804,7 +4147,7 @@ public:
                     else if (correctGesture && strcmp(rotation, "RL") == 0) ok = avl.manualRotateRL(endlessRepairPivot);
                     if (ok) {
                         syncAVLVisualsAnimated();
-                        eventController.loadFromEventLog(eventLog); eventController.start();
+                        playEvents(eventLog);
                         if (avl.isBalanced()) {
                             finishEndlessOperation();
                             hud.setStatus("Rotation accepted. AVL validation passed; next operation ready.");
@@ -3835,17 +4178,26 @@ public:
                 } else if (dragDistance > 24.0f || dragDistance < -24.0f) {
                     const char* direction = dragDistance > 0.0f ? "right" : "left";
                     bool ok = false;
+                    takeSnapshot("Before Manual AVL Rotation");
                     if (lvlNum == 2) {
+                        eventLog.clear();
+                        avl.setEventLog(&eventLog);
                         ok = act3.handleLevel32Rotation(direction, levelManager.scoreSystem, fb, sizeof(fb));
                     } else if (lvlNum == 3) {
+                        eventLog.clear();
+                        avl.setEventLog(&eventLog);
                         ok = act3.handleLevel33CaseSelect(dragDistance > 0.0f ? "lr" : "rl",
                                                          levelManager.scoreSystem, fb, sizeof(fb));
                     } else if (lvlNum == 5) {
+                        eventLog.clear();
+                        avl.setEventLog(&eventLog);
                         ok = act3.handleLevel35Repair(direction, levelManager.scoreSystem, fb, sizeof(fb));
                     }
 
                     if (ok) {
                         syncAVLVisualsAnimated();
+                        eventLog.logDone("Manual AVL rotation complete");
+                        playEvents(eventLog);
                         if (lvlNum == 2 && act3.lvl32.isLevelComplete) {
                             levelManager.notifyAction("rotate", 0);
                             SaveManager::saveProgress("levels/savegame.txt", levelManager.levels, levelManager.levelCount);
@@ -3901,13 +4253,22 @@ public:
                 eventController.stepBackward(layout);
             } else if (event.key.code == sf::Keyboard::Z) {
                 handleUndo();
+            } else if (event.key.code == sf::Keyboard::R) {
+                handleReplay();
             } else if (event.key.code == sf::Keyboard::H) {
                 handleHint();
+            } else if (event.key.code == sf::Keyboard::L) {
+                eventLogPanel.toggle();
+                setupButtons();
+            } else if (event.key.code == sf::Keyboard::M) {
+                toggleAudioMute();
+                setupButtons();
+                hud.setStatus(bgMusicMuted ? "AUDIO: Background music muted." : "AUDIO: Background music unmuted (playing).");
             } else if (event.key.code == sf::Keyboard::Escape) {
                 if (isScreen("level_play")) {
                     setScreenState("campaign_map");
                     setupButtons();
-                } else if (isScreen("campaign_map") || isScreen("sandbox") || isScreen("endless")) {
+                } else if (isScreen("campaign_map") || isScreen("sandbox") || isScreen("endless") || isScreen("settings") || isScreen("leaderboard") || isScreen("endless_menu")) {
                     if (isScreen("endless")) recordEndlessScore();
                     setScreenState("menu");
                     setupButtons();
@@ -3929,6 +4290,10 @@ public:
         renderer.updateSpores(dt);
         layout.updatePhysics(dt);
         eventController.update(dt, layout);
+        if (replayPlaybackPending && strcmp(eventController.getState(), "completed") == 0) {
+            finishReplayPlayback();
+            hud.setStatus("REPLAY COMPLETE: The action was reapplied.");
+        }
 
         if (isAct3StageTransitionPending && isScreen("level_play") && isAct("act_3") &&
             levelManager.getCurrentLevel() && levelManager.getCurrentLevel()->levelNumber == pendingAct3StageLevel) {
@@ -3985,6 +4350,12 @@ public:
                 }
             }
         }
+        if (postActionCapturePending) {
+            TreeSnapshot afterAction;
+            captureCurrentSnapshot(afterAction, "After Action");
+            if (afterAction.structureType[0] != '\0') undoManager.setReplaySnapshot(afterAction);
+            postActionCapturePending = false;
+        }
     }
 
     void render(sf::RenderWindow& window) {
@@ -4022,13 +4393,68 @@ public:
 
             sf::Text footer;
             footer.setFont(renderer.font);
-            footer.setString("Controls: Space: Pause | Left/Right: Step | Z: Undo | H: Hint | Esc: Menu | R: Reset Camera");
+            footer.setString("Controls: Space: Pause | Left/Right: Step | Z: Undo | H: Hint | M: Mute Audio | Esc: Menu | R: Reset Camera");
             footer.setCharacterSize(13);
             footer.setFillColor(sf::Color(140, 150, 170));
             sf::FloatRect fb = footer.getLocalBounds();
             footer.setOrigin(fb.left + fb.width * 0.5f, fb.top + fb.height * 0.5f);
             footer.setPosition(640.0f, 660.0f);
             window.draw(footer);
+            return;
+        }
+
+        if (isScreen("settings")) {
+            window.setView(defaultView);
+            sf::Text title;
+            title.setFont(renderer.font);
+            title.setCharacterSize(30);
+            title.setStyle(sf::Text::Bold);
+            title.setFillColor(sf::Color(64, 224, 208));
+            title.setString("SETTINGS - AUDIO CONTROL");
+            sf::FloatRect tb = title.getLocalBounds();
+            title.setOrigin(tb.left + tb.width * 0.5f, tb.top + tb.height * 0.5f);
+            title.setPosition(640.0f, 120.0f);
+            window.draw(title);
+
+            sf::Text desc;
+            desc.setFont(renderer.font);
+            desc.setCharacterSize(16);
+            desc.setFillColor(sf::Color(220, 235, 245));
+            desc.setString("Living Vault Ambient Sound: Creepy Monster Growling");
+            sf::FloatRect db = desc.getLocalBounds();
+            desc.setOrigin(db.left + db.width * 0.5f, db.top + db.height * 0.5f);
+            desc.setPosition(640.0f, 190.0f);
+            window.draw(desc);
+
+            sf::Text status;
+            status.setFont(renderer.font);
+            status.setCharacterSize(20);
+            status.setStyle(sf::Text::Bold);
+            if (bgMusicMuted) {
+                status.setFillColor(sf::Color(255, 90, 90));
+                status.setString("STATUS: MUTED (Press M or click below to unmute)");
+            } else {
+                status.setFillColor(sf::Color(100, 255, 120));
+                status.setString("STATUS: PLAYING (LOOPING)");
+            }
+            sf::FloatRect sb = status.getLocalBounds();
+            status.setOrigin(sb.left + sb.width * 0.5f, sb.top + sb.height * 0.5f);
+            status.setPosition(640.0f, 240.0f);
+            window.draw(status);
+
+            char volStr[64];
+            snprintf(volStr, sizeof(volStr), "CURRENT VOLUME: %d%%", bgMusicVolume);
+            sf::Text volText;
+            volText.setFont(renderer.font);
+            volText.setCharacterSize(18);
+            volText.setFillColor(sf::Color(255, 215, 0));
+            volText.setString(volStr);
+            sf::FloatRect vb = volText.getLocalBounds();
+            volText.setOrigin(vb.left + vb.width * 0.5f, vb.top + vb.height * 0.5f);
+            volText.setPosition(640.0f, 285.0f);
+            window.draw(volText);
+
+            for (int i = 0; i < buttonCount; ++i) buttons[i].render(window, renderer.font);
             return;
         }
 
@@ -4653,6 +5079,12 @@ public:
             stepMsg.setPosition(640.0f, 388.0f);
             window.draw(stepMsg);
         }
+
+        // ── Event Log Side Panel ──────────────────────────────────────────
+        // Always drawn in screen space (over everything else) so the camera
+        // position never shifts its coordinates.
+        window.setView(defaultView);
+        eventLogPanel.render(window, renderer.font, eventLog, eventController);
     }
 };
 
