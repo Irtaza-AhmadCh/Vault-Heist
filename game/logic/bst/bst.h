@@ -46,6 +46,7 @@ public:
 
     int successor(int key) const;
     int predecessor(int key) const;
+    int kthSmallest(int k) const;
 
     void rangeQuery(int lo, int hi) const;
     int countInRange(int lo, int hi) const;

@@ -199,7 +199,7 @@ void testTreeSerialization() {
     char buffer[256];
     SaveManager::serializeTree(root, buffer, sizeof(buffer));
 
-    // Preorder with nulls: 50 25 10 # # # 75 # #
+     
     assert(strstr(buffer, "50 25 10 # # # 75 # #") != nullptr);
 
     TreeNode* reconstructed = SaveManager::deserializeTree(buffer);

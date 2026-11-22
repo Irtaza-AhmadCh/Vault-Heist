@@ -164,6 +164,24 @@ int BST::predecessor(int key) const {
     return result->key;
 }
 
+static void kthHelper(BSTNode* node, int& count, int k, int& result) {
+    if (node == nullptr || result != -1) return;
+    kthHelper(node->left, count, k, result);
+    count++;
+    if (count == k) {
+        result = node->key;
+        return;
+    }
+    kthHelper(node->right, count, k, result);
+}
+
+int BST::kthSmallest(int k) const {
+    int count = 0;
+    int result = -1;
+    kthHelper(root, count, k, result);
+    return result;
+}
+
 void BST::rangeHelper(BSTNode* node, int lo, int hi) const {
     if (node == nullptr) return;
     if (node->key > lo) rangeHelper(node->left, lo, hi);
