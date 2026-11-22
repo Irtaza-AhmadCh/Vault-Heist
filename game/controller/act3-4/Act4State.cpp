@@ -5,24 +5,38 @@ Act4Controller::Act4Controller() {
     currentHeap = nullptr;
 }
 
-void Act4Controller::initLevel(int levelNum, MaxHeap* heapModel, ScoreSystem& score) {
+void Act4Controller::initLevel(int levelNum, MaxHeap* heapModel, ScoreSystem& score, const LevelDef* lvlDef) {
     activeLevelNumber = levelNum;
     currentHeap = heapModel;
 
     if (currentHeap == nullptr) return;
 
-    if (levelNum == 1) {
+    int mech = levelNum;
+    if (lvlDef != nullptr) {
+        if (strcmp(lvlDef->gameplayType, "build_heap") == 0 || strcmp(lvlDef->requiredAction, "build_heap") == 0) mech = 1;
+        else if (strcmp(lvlDef->gameplayType, "heap_repair") == 0 || strcmp(lvlDef->requiredAction, "repair") == 0) mech = 2;
+        else if (strcmp(lvlDef->gameplayType, "extract_max") == 0 || strcmp(lvlDef->requiredAction, "extract_max") == 0) mech = 3;
+        else if (strcmp(lvlDef->gameplayType, "extraction_race") == 0 || strcmp(lvlDef->requiredAction, "race") == 0) mech = 4;
+        else if (strcmp(lvlDef->gameplayType, "heap_sort") == 0 || strcmp(lvlDef->requiredAction, "boss") == 0) mech = 5;
+        else mech = ((levelNum - 1) % 5) + 1;
+    } else {
+        mech = ((levelNum - 1) % 5) + 1;
+    }
+
+    if (mech == 1) {
         // Level 4.1: Activate the Vault (Bottom-up Max Heap construction)
-        // Initial unsorted array: [4, 10, 3, 5, 1]
-        int raw[5] = {4, 10, 3, 5, 1};
-        lvl41.heapSize = 5;
-        for (int i = 0; i < 5; i++) {
-            lvl41.initialArray[i] = raw[i];
+        if (lvlDef && lvlDef->initialValueCount > 0) {
+            lvl41.heapSize = lvlDef->initialValueCount;
+            for (int i = 0; i < lvlDef->initialValueCount; i++) lvl41.initialArray[i] = lvlDef->initialValues[i];
+        } else {
+            int raw[5] = {4, 10, 3, 5, 1};
+            lvl41.heapSize = 5;
+            for (int i = 0; i < 5; i++) lvl41.initialArray[i] = raw[i];
         }
 
         currentHeap->loadRawArray(lvl41.initialArray, lvl41.heapSize);
 
-        // Last non-leaf index: floor(n / 2) - 1 = (5 / 2) - 1 = 1
+        // Last non-leaf index: floor(n / 2) - 1
         lvl41.currentParentIndex = (lvl41.heapSize / 2) - 1;
         lvl41.currentSiftIndex = lvl41.currentParentIndex;
         lvl41.selectedChildIndex = -1;
@@ -30,23 +44,24 @@ void Act4Controller::initLevel(int levelNum, MaxHeap* heapModel, ScoreSystem& sc
         lvl41.isLevelComplete = false;
 
         snprintf(lvl41.statusMsg, sizeof(lvl41.statusMsg),
-                 "ACTIVATE THE VAULT: Parent Pod [1] (value 10) highlighted. Inspect children: 5 and 1.");
+                 "ACTIVATE THE VAULT: Parent Pod [%d] (value %d) highlighted. Inspect children.",
+                 lvl41.currentParentIndex, currentHeap->get(lvl41.currentParentIndex));
 
-        // Optimal steps = 3 (1 no-swap at parent 1, 1 swap at root 0, 1 swap at index 1)
-        // Alarm capacity = ceil(1.5 * 3) + 2 = 5 + 2 = 7
-        score.reset(3, 7);
-    } else if (levelNum == 2) {
+        score.reset(score.optimalSteps, score.alarmCapacity);
+    } else if (mech == 2) {
         // Level 4.2: Repair the Security Locks (Sift-Down Round A & Sift-Up Round B)
-        // Round A initial: disturbed array [4, 10, 3, 5, 1]
-        int raw[5] = {4, 10, 3, 5, 1};
-        lvl42.heapSize = 5;
-        lvl42.round = 1;
-        for (int i = 0; i < 5; i++) {
-            lvl42.initialArray[i] = raw[i];
+        if (lvlDef && lvlDef->initialValueCount > 0) {
+            lvl42.heapSize = lvlDef->initialValueCount;
+            for (int i = 0; i < lvlDef->initialValueCount; i++) lvl42.initialArray[i] = lvlDef->initialValues[i];
+        } else {
+            int raw[5] = {4, 10, 3, 5, 1};
+            lvl42.heapSize = 5;
+            for (int i = 0; i < 5; i++) lvl42.initialArray[i] = raw[i];
         }
+        lvl42.round = 1;
         currentHeap->loadRawArray(lvl42.initialArray, lvl42.heapSize);
 
-        lvl42.currentSiftIndex = 0; // Root 4 violates max heap
+        lvl42.currentSiftIndex = 0; // Root violates max heap
         lvl42.selectedChildIndex = -1;
         lvl42.currentUpChildIndex = -1;
         lvl42.currentUpParentIndex = -1;
@@ -54,17 +69,22 @@ void Act4Controller::initLevel(int levelNum, MaxHeap* heapModel, ScoreSystem& sc
         lvl42.isLevelComplete = false;
 
         snprintf(lvl42.statusMsg, sizeof(lvl42.statusMsg),
-                 "ROUND A (SIFT-DOWN): Disturbed root [0] (value 4). Select larger child (10) to repair.");
+                 "ROUND A (SIFT-DOWN): Disturbed root [0] (value %d). Select larger child to repair.",
+                 currentHeap->get(0));
 
-        // Optimal steps = 4 (2 downward swaps in Round A + 2 upward swaps in Round B)
-        // Alarm capacity = ceil(1.5 * 4) + 2 = 6 + 2 = 8
-        score.reset(4, 8);
-    } else if (levelNum == 3) {
+        score.reset(score.optimalSteps, score.alarmCapacity);
+    } else if (mech == 3) {
         // Level 4.3: Extract the Greatest Treasure (Extract Maximum & Heapify)
-        // Initial valid Max Heap: [10, 5, 3, 4, 1]
-        int raw[5] = {10, 5, 3, 4, 1};
-        lvl43.totalElements = 5;
-        lvl43.activeHeapSize = 5;
+        if (lvlDef && lvlDef->initialValueCount > 0) {
+            lvl43.totalElements = lvlDef->initialValueCount;
+            lvl43.activeHeapSize = lvlDef->initialValueCount;
+            for (int i = 0; i < lvlDef->initialValueCount; i++) lvl43.initialArray[i] = lvlDef->initialValues[i];
+        } else {
+            int raw[5] = {10, 5, 3, 4, 1};
+            lvl43.totalElements = 5;
+            lvl43.activeHeapSize = 5;
+            for (int i = 0; i < 5; i++) lvl43.initialArray[i] = raw[i];
+        }
         lvl43.extractionCount = 0;
         lvl43.subPhase = 0; // 0 = WAIT_EXTRACT, 1 = SIFTING_DOWN
         lvl43.currentSiftIndex = -1;
@@ -72,23 +92,26 @@ void Act4Controller::initLevel(int levelNum, MaxHeap* heapModel, ScoreSystem& sc
         lvl43.proposedSwapText[0] = '\0';
         lvl43.isLevelComplete = false;
 
-        for (int i = 0; i < 5; i++) {
-            lvl43.initialArray[i] = raw[i];
-        }
-        currentHeap->loadRawArray(lvl43.initialArray, 5);
+        currentHeap->loadRawArray(lvl43.initialArray, lvl43.activeHeapSize);
 
         snprintf(lvl43.statusMsg, sizeof(lvl43.statusMsg),
-                 "EXTRACT GREATEST TREASURE: Root contains maximum (10). Click 'Extract Maximum'.");
+                 "EXTRACT GREATEST TREASURE: Root contains maximum (%d). Click 'Extract Maximum'.",
+                 currentHeap->get(0));
 
-        // Optimal steps = 8. Alarm capacity = ceil(1.5 * 8) + 2 = 14
-        score.reset(8, 14);
-    } else if (levelNum == 4) {
+        score.reset(score.optimalSteps, score.alarmCapacity);
+    } else if (mech == 4) {
         // Level 4.4: Race Against the Guards (Multi-round extraction under alarm pressure)
-        // Initial valid Max Heap: [15, 12, 8, 10, 6, 4]
-        int raw[6] = {15, 12, 8, 10, 6, 4};
-        lvl44.totalElements = 6;
-        lvl44.activeHeapSize = 6;
-        lvl44.extractionRoundTarget = 4;
+        if (lvlDef && lvlDef->initialValueCount > 0) {
+            lvl44.totalElements = lvlDef->initialValueCount;
+            lvl44.activeHeapSize = lvlDef->initialValueCount;
+            for (int i = 0; i < lvlDef->initialValueCount; i++) lvl44.initialArray[i] = lvlDef->initialValues[i];
+        } else {
+            int raw[6] = {15, 12, 8, 10, 6, 4};
+            lvl44.totalElements = 6;
+            lvl44.activeHeapSize = 6;
+            for (int i = 0; i < 6; i++) lvl44.initialArray[i] = raw[i];
+        }
+        lvl44.extractionRoundTarget = lvl44.totalElements > 2 ? lvl44.totalElements - 2 : 1;
         lvl44.completedExtractions = 0;
         lvl44.subPhase = 0; // 0 = WAIT_EXTRACT, 1 = SIFTING_DOWN
         lvl44.currentSiftIndex = -1;
@@ -96,25 +119,28 @@ void Act4Controller::initLevel(int levelNum, MaxHeap* heapModel, ScoreSystem& sc
         lvl44.proposedSwapText[0] = '\0';
         lvl44.isLevelComplete = false;
 
-        for (int i = 0; i < 6; i++) {
-            lvl44.initialArray[i] = raw[i];
-        }
-        currentHeap->loadRawArray(lvl44.initialArray, 6);
+        currentHeap->loadRawArray(lvl44.initialArray, lvl44.activeHeapSize);
 
         snprintf(lvl44.statusMsg, sizeof(lvl44.statusMsg),
-                 "RACE AGAINST GUARDS: Complete 4 extractions before alarm reaches capacity! Click 'Extract Maximum'.");
+                 "RACE AGAINST GUARDS: Complete %d extractions before alarm reaches capacity! Click 'Extract Maximum'.",
+                 lvl44.extractionRoundTarget);
 
-        // Optimal steps = 7. Alarm capacity = ceil(1.5 * 7) + 2 = 13
-        score.reset(7, 13);
-    } else if (levelNum == 5) {
+        score.reset(score.optimalSteps, score.alarmCapacity);
+    } else if (mech == 5) {
         // Level 4.5: Final Vault Boss (Independent full Heap Sort)
-        // Initial unsorted array: [12, 3, 17, 8, 15, 6, 1]
-        int raw[7] = {12, 3, 17, 8, 15, 6, 1};
-        lvl45.totalElements = 7;
-        lvl45.activeHeapSize = 7;
+        if (lvlDef && lvlDef->initialValueCount > 0) {
+            lvl45.totalElements = lvlDef->initialValueCount;
+            lvl45.activeHeapSize = lvlDef->initialValueCount;
+            for (int i = 0; i < lvlDef->initialValueCount; i++) lvl45.initialArray[i] = lvlDef->initialValues[i];
+        } else {
+            int raw[7] = {12, 3, 17, 8, 15, 6, 1};
+            lvl45.totalElements = 7;
+            lvl45.activeHeapSize = 7;
+            for (int i = 0; i < 7; i++) lvl45.initialArray[i] = raw[i];
+        }
         strncpy(lvl45.phase, "build", sizeof(lvl45.phase) - 1);
 
-        lvl45.currentParentIndex = (lvl45.totalElements / 2) - 1; // (7 / 2) - 1 = 2
+        lvl45.currentParentIndex = (lvl45.totalElements / 2) - 1;
         lvl45.currentSiftIndex = lvl45.currentParentIndex;
         lvl45.selectedChildIndex = -1;
         lvl45.subPhase = 0;
@@ -122,17 +148,13 @@ void Act4Controller::initLevel(int levelNum, MaxHeap* heapModel, ScoreSystem& sc
         lvl45.proposedSwapText[0] = '\0';
         lvl45.isLevelComplete = false;
 
-        for (int i = 0; i < 7; i++) {
-            lvl45.initialArray[i] = raw[i];
-        }
-        currentHeap->loadRawArray(lvl45.initialArray, 7);
+        currentHeap->loadRawArray(lvl45.initialArray, lvl45.activeHeapSize);
 
         snprintf(lvl45.statusMsg, sizeof(lvl45.statusMsg),
-                 "PHASE A (BUILD): Process parent [%d] (value %d). Inspect children: 6 and 1.",
+                 "PHASE A (BUILD): Process parent [%d] (value %d). Inspect children.",
                  lvl45.currentParentIndex, currentHeap->get(lvl45.currentParentIndex));
 
-        // Optimal steps = 12. Alarm capacity = ceil(1.5 * 12) + 2 = 20
-        score.reset(12, 20);
+        score.reset(score.optimalSteps, score.alarmCapacity);
     }
 }
 

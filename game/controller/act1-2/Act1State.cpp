@@ -52,7 +52,7 @@ void Act1Controller::initLevel(int levelNum, BinaryTree* tree, ScoreSystem& scor
         lvl11.stages[3].currentIndex = 0;
         lvl11.stages[3].completed = false;
 
-        score.reset(28, 44);
+        score.reset(score.optimalSteps, score.alarmCapacity);
         loadStageTree(0);
     } else if (levelNum == 2) {
         lvl12.currentStage = 0;
@@ -92,7 +92,7 @@ void Act1Controller::initLevel(int levelNum, BinaryTree* tree, ScoreSystem& scor
             currentTree->root = nullptr;
         }
 
-        score.reset(14, 23);
+        score.reset(score.optimalSteps, score.alarmCapacity);
     } else if (levelNum == 3) {
         strncpy(lvl13.subState, "select_node", sizeof(lvl13.subState));
         int po[7] = {12, 37, 25, 62, 88, 75, 50};
@@ -121,7 +121,7 @@ void Act1Controller::initLevel(int levelNum, BinaryTree* tree, ScoreSystem& scor
             currentTree->root->right->right = new TreeNode(88);
         }
 
-        score.reset(7, 13);
+        score.reset(score.optimalSteps, score.alarmCapacity);
     } else if (levelNum == 4) {
         strncpy(lvl14.phase, "select_lca", sizeof(lvl14.phase));
         lvl14.nodeA = 12;
@@ -147,7 +147,7 @@ void Act1Controller::initLevel(int levelNum, BinaryTree* tree, ScoreSystem& scor
             currentTree->root->right->right = new TreeNode(88);
         }
 
-        score.reset(5, 10);
+        score.reset(score.optimalSteps, score.alarmCapacity);
     } else if (levelNum == 5) {
         lvl15.nodeCount = 7;
         lvl15.isLevelComplete = false;
@@ -172,7 +172,7 @@ void Act1Controller::initLevel(int levelNum, BinaryTree* tree, ScoreSystem& scor
         targetTree.root = currentTree->cloneTree(currentTree->root);
         targetTree.mirror(targetTree.root);
 
-        score.reset(7, 13);
+        score.reset(score.optimalSteps, score.alarmCapacity);
     }
 }
 

@@ -25,7 +25,7 @@ void Act2Controller::initLevel(int levelNum, BST* bstModel, ScoreSystem& score) 
         snprintf(lvl21.statusMsg, sizeof(lvl21.statusMsg),
                  "SEARCH HEIST: Target key is %d. Click the root pod to reveal its key and begin comparisons.",
                  lvl21.targetKey);
-        score.reset(3, 7);
+        score.reset(score.optimalSteps, score.alarmCapacity);
     } else if (levelNum == 2) {
         // Level 2.2: Stash Loot
         lvl22.insertKey = 45;
@@ -36,12 +36,12 @@ void Act2Controller::initLevel(int levelNum, BST* bstModel, ScoreSystem& score) 
         snprintf(lvl22.statusMsg, sizeof(lvl22.statusMsg),
                  "STASH LOOT: Insert key %d. Follow comparisons (Left if smaller, Right if larger) to find the empty slot.",
                  lvl22.insertKey);
-        score.reset(4, 8);
+        score.reset(score.optimalSteps, score.alarmCapacity);
     } else if (levelNum == 3) {
         // Level 2.3: Steal and Collapse (All 3 Deletion Cases: Leaf 20, One Child 60, Two Children 50)
         lvl23.totalStages = 3;
         initLevel23Stage(0);
-        score.reset(4, 8);
+        score.reset(score.optimalSteps, score.alarmCapacity);
     } else if (levelNum == 4) {
         // Level 2.4: Range Raid [30, 65] with subtree pruning
         lvl24.lo = 30;
@@ -56,7 +56,7 @@ void Act2Controller::initLevel(int levelNum, BST* bstModel, ScoreSystem& score) 
         snprintf(lvl24.statusMsg, sizeof(lvl24.statusMsg),
                  "RANGE RAID: Range [%d, %d]. Click 'Scan Range' to execute range query and prune out-of-bounds subtrees.",
                  lvl24.lo, lvl24.hi);
-        score.reset(6, 11);
+        score.reset(score.optimalSteps, score.alarmCapacity);
     } else if (levelNum == 5) {
         // Level 2.5: Boss: The Lazy Architect
         lvl25.stage = 0; // Stage A: Insertion
@@ -77,7 +77,7 @@ void Act2Controller::initLevel(int levelNum, BST* bstModel, ScoreSystem& score) 
 
         snprintf(lvl25.statusMsg, sizeof(lvl25.statusMsg),
                  "BOSS STAGE A (Scored): Insert sorted values [10..70] into the BST. Click 'Insert Next' to graft each pod.");
-        score.reset(28, 44);
+        score.reset(score.optimalSteps, score.alarmCapacity);
     }
 }
 
@@ -645,7 +645,7 @@ void Act2Controller::transitionToStageB(ScoreSystem& score) {
     lvl25.searchFailed = false;
 
     // Display Stage B search budget (0 / 3) on HUD without affecting frozen Stage A record
-    score.reset(3, 3);
+    score.alarmSteps = 0;
 }
 
 bool Act2Controller::handleLevel25SearchClick(int clickedKey, ScoreSystem& score, char* feedback, int maxLen) {

@@ -121,7 +121,7 @@ public:
 
     Act4Controller();
 
-    void initLevel(int levelNum, MaxHeap* heapModel, ScoreSystem& score);
+    void initLevel(int levelNum, MaxHeap* heapModel, ScoreSystem& score, const LevelDef* lvlDef = nullptr);
     void cancelSelection();
 
     // Level 4.1 methods

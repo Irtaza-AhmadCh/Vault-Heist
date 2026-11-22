@@ -3,11 +3,13 @@
   "version": "1.0",
   "totalActs": 4,
   "levelsPerAct": 5,
-  "totalLevels": 20,
+  "totalLevels": 25,
   "levels": [
     {
       "act": 1,
       "level": 1,
+      "id": "act1.level1", "order": 1, 
+      "gameplayType": "traversal_stages",
       "title": "Level 1.1: Neural Traversal",
       "actName": "The Blueprint Wing",
       "structureType": "tree",
@@ -15,11 +17,12 @@
       "hint": "Inorder visits left branch, root pod, then right branch.",
       "requiredAction": "inorder",
       "targetValue": 0,
-      "optimalSteps": 28
+      "requiredValues": [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
     },
     {
       "act": 1,
       "level": 2,
+      "id": "act1.level2", "order": 2, "gameplayType": "reconstruction",
       "title": "Level 1.2: Neural Reconstruction",
       "actName": "The Blueprint Wing",
       "structureType": "tree",
@@ -27,11 +30,12 @@
       "hint": "Use the Preorder + Inorder sequences to rebuild the hive.",
       "requiredAction": "reconstruct",
       "targetValue": 0,
-      "optimalSteps": 14
+      "requiredValues": [1,1,1,1,1,1,1,1,1,1,1,1,1,1]
     },
     {
       "act": 1,
       "level": 3,
+      "id": "act1.level3", "order": 3, "gameplayType": "height_diameter",
       "title": "Level 1.3: Hive Metrics",
       "actName": "The Blueprint Wing",
       "structureType": "tree",
@@ -39,11 +43,12 @@
       "hint": "Height measures vertical levels; diameter measures the longest path.",
       "requiredAction": "height_diam",
       "targetValue": 0,
-      "optimalSteps": 7
+      "requiredValues": [12,37,25,62,88,75,50]
     },
     {
       "act": 1,
       "level": 4,
+      "id": "act1.level4", "order": 4, "gameplayType": "lca_path",
       "title": "Level 1.4: Synaptic Convergence (LCA)",
       "actName": "The Blueprint Wing",
       "structureType": "tree",
@@ -51,11 +56,12 @@
       "hint": "Find the deepest shared ancestral pod between branches.",
       "requiredAction": "lca",
       "targetValue": 0,
-      "optimalSteps": 5
+      "requiredValues": [12,25,50,75,62]
     },
     {
       "act": 1,
       "level": 5,
+      "id": "act1.level5", "order": 5, "gameplayType": "manual_mirror",
       "title": "Level 1.5: Bilateral Reflection",
       "actName": "The Blueprint Wing",
       "structureType": "tree",
@@ -63,11 +69,27 @@
       "hint": "Swaps left and right children recursively across the trunk.",
       "requiredAction": "mirror",
       "targetValue": 0,
-      "optimalSteps": 7
+      "requiredValues": [12,37,25,62,88,75,50]
     },
+    {
+  "act": 1,
+  "level": 6,
+  "id": "act1.level6",
+  "order": 6,
+  "gameplayType": "level_order",
+  "title": "Level 1.6: Neural Propagation",
+  "actName": "The Blueprint Wing",
+  "structureType": "tree",
+  "objective": "Perform a Level Order Traversal to synchronize all neural pods.",
+  "hint": "Visit nodes level by level, moving from left to right. Use a queue to process each level.",
+  "requiredAction": "level_order",
+  "targetValue": 0,
+  "requiredValues": [50, 37, 75, 12, 25, 62, 88]
+},
     {
       "act": 2,
       "level": 1,
+      "id": "act2.level1", "order": 7, "gameplayType": "guided_search",
       "title": "Level 2.1: Search Heist",
       "actName": "The Sorted Wing",
       "structureType": "bst",
@@ -75,11 +97,12 @@
       "hint": "Keys smaller go left; keys larger go right.",
       "requiredAction": "search",
       "targetValue": 60,
-      "optimalSteps": 3
+      "initialValues": [50,30,70,20,40,60,85], "requiredValues": [50,70,60]
     },
     {
       "act": 2,
       "level": 2,
+      "id": "act2.level2", "order": 8, "gameplayType": "guided_insert",
       "title": "Level 2.2: Stash Loot",
       "actName": "The Sorted Wing",
       "structureType": "bst",
@@ -87,11 +110,12 @@
       "hint": "Trace comparisons to find the empty NULL slot.",
       "requiredAction": "insert",
       "targetValue": 45,
-      "optimalSteps": 4
+      "initialValues": [50,30,70,20,40,60,85], "requiredValues": [50,30,40]
     },
     {
       "act": 2,
       "level": 3,
+      "id": "act2.level3", "order": 9, "gameplayType": "staged_delete",
       "title": "Level 2.3: Steal and Collapse",
       "actName": "The Sorted Wing",
       "structureType": "bst",
@@ -99,11 +123,12 @@
       "hint": "Identify each deletion case. For two children, swap with inorder successor 60.",
       "requiredAction": "delete",
       "targetValue": 0,
-      "optimalSteps": 4
+      "stageTargets": [20,60,50]
     },
     {
       "act": 2,
       "level": 4,
+      "id": "act2.level4", "order": 10, "gameplayType": "range_query",
       "title": "Level 2.4: Range Raid",
       "actName": "The Sorted Wing",
       "structureType": "bst",
@@ -111,11 +136,12 @@
       "hint": "Branches outside the range boundaries are bypassed (20 and 80 pruned).",
       "requiredAction": "range",
       "targetValue": 0,
-      "optimalSteps": 6
+      "requiredValues": [50,30,40,70,60,65]
     },
     {
       "act": 2,
       "level": 5,
+      "id": "act2.level5", "order": 11, "gameplayType": "degeneration_boss",
       "title": "Level 2.5: Boss: The Lazy Architect",
       "actName": "The Sorted Wing",
       "structureType": "bst",
@@ -123,11 +149,12 @@
       "hint": "Sorted insertions form a chain, destroying logarithmic efficiency.",
       "requiredAction": "boss",
       "targetValue": 0,
-      "optimalSteps": 28
+      "requiredValues": [10,20,30,40,50,60,70]
     },
     {
       "act": 3,
       "level": 1,
+      "id": "act3.level1", "order": 26, "gameplayType": "find_unbalanced",
       "title": "Level 3.1: Read the Badges",
       "actName": "The Architect's Wing",
       "structureType": "avl",
@@ -135,11 +162,12 @@
       "hint": "Inspect badges: green is balanced (-1, 0, +1), red violates AVL invariant.",
       "requiredAction": "search",
       "targetValue": 0,
-      "optimalSteps": 2
+      "requiredValues": [30,70]
     },
     {
       "act": 3,
       "level": 2,
+      "id": "act3.level2", "order": 12, "gameplayType": "single_rotation_stages",
       "title": "Level 3.2: Single Rotations (LL & RR)",
       "actName": "The Architect's Wing",
       "structureType": "avl",
@@ -147,11 +175,12 @@
       "hint": "LL requires Right rotation; RR requires Left rotation.",
       "requiredAction": "rotate",
       "targetValue": 0,
-      "optimalSteps": 2
+      "stageTargets": [1,2]
     },
     {
       "act": 3,
       "level": 3,
+      "id": "act3.level3", "order": 13, "gameplayType": "double_rotation_stages",
       "title": "Level 3.3: Double Rotations (LR & RL)",
       "actName": "The Architect's Wing",
       "structureType": "avl",
@@ -159,11 +188,12 @@
       "hint": "LR is Left-Right double rotation; RL is Right-Left double rotation.",
       "requiredAction": "rotate",
       "targetValue": 0,
-      "optimalSteps": 2
+      "stageTargets": [1,2]
     },
     {
       "act": 3,
       "level": 4,
+      "id": "act3.level4", "order": 14, "gameplayType": "avl_prediction",
       "title": "Level 3.4: Auto Mode and Prediction",
       "actName": "The Architect's Wing",
       "structureType": "avl",
@@ -171,11 +201,12 @@
       "hint": "Trace insertion path to determine if BF reaches +2 or -2.",
       "requiredAction": "insert",
       "targetValue": 0,
-      "optimalSteps": 5
+      "requiredValues": [30,20,10,25,28]
     },
     {
       "act": 3,
       "level": 5,
+      "id": "act3.level5", "order": 15, "gameplayType": "order_statistic_boss",
       "title": "Level 3.5: Boss: Order-Statistic Heist",
       "actName": "The Architect's Wing",
       "structureType": "avl",
@@ -183,11 +214,12 @@
       "hint": "Balance RR at 50, then use subtreeSize to navigate to the 3rd largest node.",
       "requiredAction": "boss",
       "targetValue": 50,
-      "optimalSteps": 4
+      "requiredValues": [40,50,60]
     },
     {
       "act": 4,
       "level": 1,
+      "id": "act4.level1", "order": 16, "gameplayType": "build_heap",
       "title": "Level 4.1: Activate the Vault",
       "actName": "The Heap Fortress",
       "structureType": "heap",
@@ -195,11 +227,12 @@
       "hint": "Inspect each parent bottom-up; compare with children and swap with the larger child.",
       "requiredAction": "build_heap",
       "targetValue": 0,
-      "optimalSteps": 3
+      "initialValues": [4,10,3,5,1]
     },
     {
       "act": 4,
       "level": 2,
+      "id": "act4.level2", "order": 17, "gameplayType": "heap_repair",
       "title": "Level 4.2: Repair the Security Locks",
       "actName": "The Heap Fortress",
       "structureType": "heap",
@@ -207,11 +240,12 @@
       "hint": "Sift down root 4 with larger child; then sift up new treasure 12 to root.",
       "requiredAction": "repair",
       "targetValue": 0,
-      "optimalSteps": 4
+      "requiredValues": [1,2,3,4]
     },
     {
       "act": 4,
       "level": 3,
+      "id": "act4.level3", "order": 18, "gameplayType": "extract_max",
       "title": "Level 4.3: Extract the Greatest Treasure",
       "actName": "The Heap Fortress",
       "structureType": "heap",
@@ -219,11 +253,12 @@
       "hint": "Swap root with last active element, shrink heap size, and sift down new root.",
       "requiredAction": "extract_max",
       "targetValue": 0,
-      "optimalSteps": 8
+      "requiredValues": [1,2,3,4,5,6,7,8]
     },
     {
       "act": 4,
       "level": 4,
+      "id": "act4.level4", "order": 19, "gameplayType": "extraction_race",
       "title": "Level 4.4: Race Against the Guards",
       "actName": "The Heap Fortress",
       "structureType": "heap",
@@ -231,11 +266,12 @@
       "hint": "Work efficiently: each extraction requires root/last swap and sift-down.",
       "requiredAction": "race",
       "targetValue": 0,
-      "optimalSteps": 7
+      "requiredValues": [1,2,3,4,5,6,7]
     },
     {
       "act": 4,
       "level": 5,
+      "id": "act4.level5", "order": 20, "gameplayType": "heap_sort",
       "title": "Level 4.5: Final Vault Boss",
       "actName": "The Heap Fortress",
       "structureType": "heap",
@@ -243,7 +279,86 @@
       "hint": "Build max heap bottom-up, then perform repeated extractions until array is sorted.",
       "requiredAction": "boss",
       "targetValue": 0,
-      "optimalSteps": 12
+      "requiredValues": [1,2,3,4,5,6,7,8,9,10,11,12]
+    },
+    {
+      "act": 4,
+      "level": 6,
+      "id": "act4.level6",
+      "order": 21,
+      "title": "Level 4.6: Heap Warmup",
+      "actName": "The Heap Fortress",
+      "structureType": "heap",
+      "gameplayType": "build_heap",
+      "objective": "Build a compact max heap from the supplied chamber values.",
+      "hint": "Start from the final parent and work upward.",
+      "requiredAction": "build_heap",
+      "targetValue": 0,
+      "initialValues": [4, 9, 6, 2, 1]
+    },
+    {
+      "act": 4,
+      "level": 7,
+      "id": "act4.level7",
+      "order": 22,
+      "title": "Level 4.7: Sift Repair Drill",
+      "actName": "The Heap Fortress",
+      "structureType": "heap",
+      "gameplayType": "heap_repair",
+      "objective": "Repair the disturbed heap using the required sift decisions.",
+      "hint": "Choose the larger child during each downward repair.",
+      "requiredAction": "repair",
+      "targetValue": 0,
+      "initialValues": [4, 10, 3, 5, 1],
+      "requiredValues": [1, 2, 3, 4]
+    },
+    {
+      "act": 4,
+      "level": 8,
+      "id": "act4.level8",
+      "order": 23,
+      "title": "Level 4.8: Extraction Drill",
+      "actName": "The Heap Fortress",
+      "structureType": "heap",
+      "gameplayType": "extract_max",
+      "objective": "Extract the greatest values while restoring heap order.",
+      "hint": "After promoting the final value, sift it down.",
+      "requiredAction": "extract_max",
+      "targetValue": 0,
+      "initialValues": [10, 5, 3, 4, 1],
+      "requiredValues": [1, 2, 3, 4, 5, 6]
+    },
+    {
+      "act": 4,
+      "level": 9,
+      "id": "act4.level9",
+      "order": 24,
+      "title": "Level 4.9: Alarm Extraction Race",
+      "actName": "The Heap Fortress",
+      "structureType": "heap",
+      "gameplayType": "extraction_race",
+      "objective": "Complete the configured extraction route before the alarm fills.",
+      "hint": "Each valid extraction must preserve the max-heap property.",
+      "requiredAction": "race",
+      "targetValue": 0,
+      "initialValues": [15, 12, 8, 10, 6, 4],
+      "requiredValues": [1, 2, 3, 4, 5]
+    },
+    {
+      "act": 4,
+      "level": 10,
+      "id": "act4.level10",
+      "order": 25,
+      "title": "Level 4.10: Sorting Vault",
+      "actName": "The Heap Fortress",
+      "structureType": "heap",
+      "gameplayType": "heap_sort",
+      "objective": "Complete the configured heap-sort decision route.",
+      "hint": "The sorted area grows from the right side of the array.",
+      "requiredAction": "boss",
+      "targetValue": 0,
+      "initialValues": [12, 3, 17, 8, 15, 6, 1],
+      "requiredValues": [1, 2, 3, 4, 5, 6, 7, 8]
     }
   ]
 }

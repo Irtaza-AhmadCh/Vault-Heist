@@ -4,6 +4,10 @@
 #include <cstring>
 
 struct LevelDef {
+    static const int MAX_MAP_VALUES = 32;
+    static const int MAX_STAGES = 8;
+    char id[32];
+    int order;
     int actNumber;          // 1, 2, 3, 4
     int levelNumber;        // 1 to 5 (e.g. 1.1 to 1.5)
     char title[64];         // e.g. "Level 1.1: Neural Traversal"
@@ -12,15 +16,25 @@ struct LevelDef {
     char objective[160];    // e.g. "Perform Inorder Traversal to extract neural sequence"
     char hint[160];         // e.g. "Inorder visits left child, root, then right child."
     char requiredAction[32];// "inorder", "search", "insert", "delete", etc.
+    char gameplayType[32];  // centralized, guardrail-approved handler identifier
     int targetValue;        // e.g. 45 or key to operate on
-    int optimalSteps;       // baseline steps for 3 stars
-    int alarmCapacity;      // ceil(1.5 * optimalSteps) + 2
+    int initialValues[MAX_MAP_VALUES];
+    int initialValueCount;
+    int requiredValues[MAX_MAP_VALUES];
+    int requiredValueCount;
+    int stageTargets[MAX_STAGES];
+    int stageTargetCount;
+    int secondaryTargetValue;
+    int optimalSteps;       // calculated by LevelManager, never read from JSON
+    int alarmCapacity;      // calculated from optimalSteps
     bool isUnlocked;
     int starsEarned;        // 0 to 3
     int bestScore;
     bool isCompleted;
 
     LevelDef() {
+        id[0] = '\0';
+        order = 0;
         actNumber = 1;
         levelNumber = 1;
         title[0] = '\0';
@@ -29,9 +43,19 @@ struct LevelDef {
         objective[0] = '\0';
         hint[0] = '\0';
         requiredAction[0] = '\0';
+        gameplayType[0] = '\0';
         targetValue = 0;
-        optimalSteps = 5;
-        alarmCapacity = 10;
+        initialValueCount = 0;
+        requiredValueCount = 0;
+        stageTargetCount = 0;
+        secondaryTargetValue = 0;
+        for (int i = 0; i < MAX_MAP_VALUES; i++) {
+            initialValues[i] = 0;
+            requiredValues[i] = 0;
+        }
+        for (int i = 0; i < MAX_STAGES; i++) stageTargets[i] = 0;
+        optimalSteps = 0;
+        alarmCapacity = 0;
         isUnlocked = false;
         starsEarned = 0;
         bestScore = 0;
@@ -50,7 +74,7 @@ struct LevelDef {
         strncpy(requiredAction, reqAct, sizeof(requiredAction) - 1); requiredAction[sizeof(requiredAction) - 1] = '\0';
         targetValue = targetVal;
         optimalSteps = optSteps;
-        alarmCapacity = static_cast<int>(1.5f * optSteps + 0.999f) + 2;
+        alarmCapacity = (3 * optSteps + 1) / 2 + 2;
         isUnlocked = (act == 1 && lvl == 1); // First level unlocked by default
         starsEarned = 0;
         bestScore = 0;

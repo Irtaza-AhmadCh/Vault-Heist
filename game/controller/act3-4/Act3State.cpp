@@ -32,7 +32,7 @@ void Act3Controller::initLevel(int levelNum, AVLTree* avlModel, ScoreSystem& sco
         lvl31.isLevelComplete = false;
         snprintf(lvl31.statusMsg, sizeof(lvl31.statusMsg),
                  "READ THE BADGES: Click all rooms violating AVL balance (|BF| > 1). [0/2 found]");
-        score.reset(2, 5); // optimal 2, cap 5
+        score.reset(score.optimalSteps, score.alarmCapacity);
 
     } else if (levelNum == 2) {
         // Level 3.2: Single Rotations
@@ -40,7 +40,7 @@ void Act3Controller::initLevel(int levelNum, AVLTree* avlModel, ScoreSystem& sco
         lvl32.totalStages = 2;
         lvl32.isLevelComplete = false;
         setupLevel32Stage(0);
-        score.reset(2, 5); // optimal 2, cap 5
+        score.reset(score.optimalSteps, score.alarmCapacity);
 
     } else if (levelNum == 3) {
         // Level 3.3: Double Rotations
@@ -48,7 +48,7 @@ void Act3Controller::initLevel(int levelNum, AVLTree* avlModel, ScoreSystem& sco
         lvl33.totalStages = 2;
         lvl33.isLevelComplete = false;
         setupLevel33Stage(0);
-        score.reset(2, 5); // optimal 2, cap 5
+        score.reset(score.optimalSteps, score.alarmCapacity);
 
     } else if (levelNum == 4) {
         // Level 3.4: Auto Mode and Prediction
@@ -64,7 +64,7 @@ void Act3Controller::initLevel(int levelNum, AVLTree* avlModel, ScoreSystem& sco
         lvl34.isLevelComplete = false;
         snprintf(lvl34.statusMsg, sizeof(lvl34.statusMsg),
                  "PREDICTION: Next key to insert is %d. Predict rotation before insertion!", lvl34.sequence[0]);
-        score.reset(5, 10); // optimal 5, cap 10
+        score.reset(score.optimalSteps, score.alarmCapacity);
 
     } else if (levelNum == 5) {
         // Level 3.5: Boss: Order-Statistic Heist
@@ -83,7 +83,7 @@ void Act3Controller::initLevel(int levelNum, AVLTree* avlModel, ScoreSystem& sco
         lvl35.isLevelComplete = false;
         snprintf(lvl35.statusMsg, sizeof(lvl35.statusMsg),
                  "BOSS PHASE A: Pod 50 has an RR imbalance. Drag pod 50 to the left to repair the tree.");
-        score.reset(4, 8); // optimal 4, cap 8
+        score.reset(score.optimalSteps, score.alarmCapacity);
     }
 }
 
